@@ -1,0 +1,37 @@
+﻿services:
+  callio.api:
+    image: callio.api
+    build:
+      context: .
+      dockerfile: src/Callio.API/Dockerfile
+
+  callio.admin:
+    image: callio.admin
+    build:
+      context: .
+      dockerfile: src/Callio.Admin/Dockerfile
+
+  callio:
+    image: callio
+    build:
+      context: .
+      dockerfile: src/Callio/Callio/Dockerfile
+
+  callio.client:
+    image: callio.client
+    build:
+      context: .
+      dockerfile: src/Callio/Callio.Client/Dockerfile
+
+  callio-1:
+    image: callio-1
+    build:
+      context: .
+      dockerfile: src/Portal/Callio/Callio/Dockerfile
+
+  callio.client-1:
+    image: callio.client-1
+    build:
+      context: .
+      dockerfile: src/Portal/Callio/Callio.Client/Dockerfile
+

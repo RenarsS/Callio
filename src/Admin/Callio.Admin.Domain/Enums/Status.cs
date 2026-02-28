@@ -2,6 +2,7 @@
 
 public enum Status
 {
-    Enabled,
     Disabled,
+    Enabled,
+    Pending
 }

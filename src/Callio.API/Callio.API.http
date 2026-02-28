@@ -1,0 +1,6 @@
+@Callio.API_HostAddress = http://localhost:5043
+
+GET {{Callio.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

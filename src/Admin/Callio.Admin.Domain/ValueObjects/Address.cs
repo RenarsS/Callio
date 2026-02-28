@@ -3,7 +3,7 @@ using Callio.Core.Domain.Helpers;
 
 namespace Callio.Admin.Domain.ValueObjects;
 
-public class Address : ValueObject
+public record Address
 {
     public string Street { get; }
 
@@ -31,13 +31,5 @@ public class Address : ValueObject
         PostalCode = postalCode;
         City = city;
         Country = country;
-    }
-
-    protected override IEnumerable<object> GetEqualityComponents()
-    {
-        yield return Street;
-        yield return PostalCode;
-        yield return City;
-        yield return Country;
     }
 }

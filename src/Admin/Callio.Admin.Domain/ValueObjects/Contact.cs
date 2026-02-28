@@ -5,17 +5,17 @@ using Callio.Core.Domain.Validators;
 
 namespace Callio.Admin.Domain.ValueObjects;
 
-public partial class Contact : ValueObject
+public partial record Contact
 {
-    public string Person { get; set; }
+    public string Person { get; }
     
-    public string Email { get; set; }
+    public string Email { get; }
     
-    public string Phone { get; set; }
+    public string Phone { get; }
     
-    public Address Address { get; set; }
+    public Address Address { get; }
     
-    public string Website { get; set; }
+    public string Website { get; }
 
     public Contact(string person, string email, string phone, Address address, string website)
     {
@@ -28,23 +28,14 @@ public partial class Contact : ValueObject
         if (!PhoneRegex().IsMatch(phone))
             throw new InvalidFieldException(nameof(Phone));
 
-        if (string.IsNullOrEmpty(website))
+        if (!WebsiteRegex().IsMatch(website))
             throw new InvalidFieldException(nameof(Website));
         
         Person = person;
-        Email =  email;
-        Phone =  phone;
+        Email = email;
+        Phone = phone;
         Address = address;
         Website = website;
-    }
-
-    protected override IEnumerable<object> GetEqualityComponents()
-    {
-        yield return Person;
-        yield return Email;
-        yield return Phone;
-        yield return Address;
-        yield return Website;
     }
 
     [GeneratedRegex(RegexConstants.PhoneRegex)]
@@ -52,4 +43,7 @@ public partial class Contact : ValueObject
     
     [GeneratedRegex(RegexConstants.EmailRegex)]
     private static partial Regex EmailRegex();
+
+    [GeneratedRegex(RegexConstants.WebsiteRegex)]
+    private static partial Regex WebsiteRegex();
 }
