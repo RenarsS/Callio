@@ -34,6 +34,8 @@ public class Invoice : Entity<int>
     
     public IReadOnlyCollection<InvoiceLineItem> LineItems => _lineItems.AsReadOnly();
 
+    private Invoice() { }
+    
     public Invoice(int tenantId, int subscriptionId, DateRange billingPeriod, Address billingAddress, DateTime dueDate, DateTime issuedAt, Money zeroAmount)
     {
         TenantId = tenantId;
@@ -47,7 +49,7 @@ public class Invoice : Entity<int>
         Tax = zeroAmount;
         Total = zeroAmount;
     }
-
+    
     public void AddLineItem(string description, int quantity, Money unitPrice)
     {
         if (Status != InvoiceStatus.Draft)

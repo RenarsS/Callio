@@ -5,13 +5,15 @@ namespace Callio.Admin.Domain.ValueObjects;
 
 public record Address
 {
-    public string Street { get; }
+    public string Street { get; private set; }
 
-    public string PostalCode { get; }
+    public string PostalCode { get; private set; }
 
-    public string City { get; }
+    public string City { get; private set; }
 
-    public string Country { get; }
+    public string Country { get; private set; }
+    
+    private Address() { }
 
     public Address(string street, string postalCode, string city, string country)
     {

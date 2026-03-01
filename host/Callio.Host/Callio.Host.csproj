@@ -8,4 +8,8 @@
         <UserSecretsId>580dff27-875a-47e5-bec6-ba575a7844a8</UserSecretsId>
     </PropertyGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\Callio.API\Callio.API.csproj" />
+    </ItemGroup>
+
 </Project>

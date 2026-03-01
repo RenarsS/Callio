@@ -4,22 +4,34 @@ using Callio.Core.Domain.Helpers;
 
 namespace Callio.Admin.Domain;
 
-public class Subscription(int tenantId, int planId, DateRange currentPeriod, DateTime? trialEndsAt = null)
+public class Subscription
     : Entity<int>
 {
-    public int TenantId { get; private set; } = tenantId;
+    public int TenantId { get; private set; }
 
-    public int PlanId { get; private set; } = planId;
+    public int PlanId { get; private set; }
 
-    public SubscriptionStatus Status { get; private set; } = trialEndsAt.HasValue ? SubscriptionStatus.Trial : SubscriptionStatus.Active;
+    public SubscriptionStatus Status { get; private set; }
 
-    public DateRange CurrentPeriod { get; private set; } = currentPeriod;
+    public DateRange CurrentPeriod { get; private set; }
 
-    public DateTime? TrialEndsAt { get; private set; } = trialEndsAt;
+    public DateTime? TrialEndsAt { get; private set; }
 
     public DateTime? CancelledAt { get; private set; }
     
     public DateTime? CancellationScheduledAt { get; private set; }
+    
+    private Subscription() { }
+
+    public Subscription(int tenantId, int planId, DateRange currentPeriod, DateTime? trialEndsAt = null)
+    {
+        TenantId = tenantId;
+        PlanId = planId;
+        CurrentPeriod = currentPeriod;
+        TrialEndsAt = trialEndsAt;
+        Status = trialEndsAt.HasValue ? SubscriptionStatus.Trial : SubscriptionStatus.Active;
+        
+    }
 
     public void Activate()
     {

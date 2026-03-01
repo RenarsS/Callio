@@ -22,6 +22,7 @@ public class Tenant : Entity<int>
 
     public TenancyStatus Status { get; set; }
     
+    private Tenant() { }
 
     public Tenant(string name, Guid? tenantCode, Contact contact,
         DateTime createdAt, DateTime activatedAt, DateTime? deactivatedAt = null, DateTime? now = null) 

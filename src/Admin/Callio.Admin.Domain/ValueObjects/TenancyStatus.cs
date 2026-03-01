@@ -7,6 +7,8 @@ public record TenancyStatus
 {
     public Status Value { get; private set; }
 
+    private TenancyStatus() { }
+
     public TenancyStatus(DateTime? today, DateTime activationDate, DateTime? deactivationDate = null)
     {
         today ??= DateTime.Now;

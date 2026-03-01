@@ -16,6 +16,8 @@ public partial record Contact
     public Address Address { get; }
     
     public string Website { get; }
+    
+    private Contact() { }
 
     public Contact(string person, string email, string phone, Address address, string website)
     {

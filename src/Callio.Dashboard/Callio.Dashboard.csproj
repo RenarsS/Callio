@@ -4,13 +4,10 @@
         <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+        <RootNamespace>Callio.Admin</RootNamespace>
     </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3"/>
-        <PackageReference Include="Scalar.AspNetCore" Version="2.12.50" />
-    </ItemGroup>
 
     <ItemGroup>
       <Content Include="..\..\.dockerignore">
@@ -19,8 +16,15 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Admin\Callio.Admin.Infrastructure\Callio.Admin.Infrastructure.csproj" />
-      <ProjectReference Include="..\Identity\Callio.Identity.Infrastructure\Callio.Identity.Infrastructure.csproj" />
+      <PackageReference Include="MudBlazor" Version="9.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <_ContentIncludedByDefault Remove="Components\Pages\IIdentity\Login.cshtml" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="wwwroot\lib\" />
     </ItemGroup>
 
 </Project>

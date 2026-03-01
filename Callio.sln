@@ -29,7 +29,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		compose.yaml = compose.yaml
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Admin", "src\Callio.Admin\Callio.Admin.csproj", "{F009CC93-8AE8-42B7-83D5-06B00F6AFCF3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Dashboard", "src\Callio.Dashboard\Callio.Dashboard.csproj", "{F009CC93-8AE8-42B7-83D5-06B00F6AFCF3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Portal", "Portal", "{B5926819-4E5B-455D-AB33-D579B4673473}"
 EndProject
@@ -38,6 +38,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Client", "src\Portal\Callio\Callio.Client\Callio.Client.csproj", "{35A8DF10-FFED-4B9A-AFAE-32721354AE1C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Admin.API", "src\Admin\Callio.Admin.API\Callio.Admin.API.csproj", "{E9B89847-0AEB-460B-888C-95F699AAFC55}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Core.Infrastructure", "src\Core\Callio.Core.Infrastructure\Callio.Core.Infrastructure.csproj", "{AB25E3DC-54D9-40B3-AF09-BE3368CAF748}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Identity", "Identity", "{EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.Domain", "src\Identity\Callio.Identity.Domain\Callio.Identity.Domain.csproj", "{01742DBF-FC50-43BB-A6C1-0B4C566F16A6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.Infrastructure", "src\Identity\Callio.Identity.Infrastructure\Callio.Identity.Infrastructure.csproj", "{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -59,6 +67,10 @@ Global
 		{330A001F-B0DA-4376-80D2-E9F8714B48C8} = {B5926819-4E5B-455D-AB33-D579B4673473}
 		{35A8DF10-FFED-4B9A-AFAE-32721354AE1C} = {B5926819-4E5B-455D-AB33-D579B4673473}
 		{E9B89847-0AEB-460B-888C-95F699AAFC55} = {A9E10AC0-2473-4386-A202-6C32B61F353C}
+		{AB25E3DC-54D9-40B3-AF09-BE3368CAF748} = {8DD41022-C156-4DC3-9BC5-B6B3AF957832}
+		{EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA} = {163AABAE-3B9A-4C4B-8F55-66865E54E32C}
+		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
+		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{841EAD5F-6E48-4BA7-ADA0-57BFBD1F2112}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -105,5 +117,17 @@ Global
 		{E9B89847-0AEB-460B-888C-95F699AAFC55}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E9B89847-0AEB-460B-888C-95F699AAFC55}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E9B89847-0AEB-460B-888C-95F699AAFC55}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB25E3DC-54D9-40B3-AF09-BE3368CAF748}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB25E3DC-54D9-40B3-AF09-BE3368CAF748}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB25E3DC-54D9-40B3-AF09-BE3368CAF748}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB25E3DC-54D9-40B3-AF09-BE3368CAF748}.Release|Any CPU.Build.0 = Release|Any CPU
+		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

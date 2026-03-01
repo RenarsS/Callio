@@ -2,21 +2,31 @@
 
 namespace Callio.Admin.Domain;
 
-public class UsageRecord(
-    int tenantId,
-    int usageMetricId,
-    decimal quantity,
-    DateTime? recordedAt = null,
-    string? sourceReference = null)
-    : Entity<int>
+public class UsageRecord : Entity<int>
 {
-    public int TenantId { get; private set; } = tenantId;
+    public int TenantId { get; private set; }
 
-    public int UsageMetricId { get; private set; } = usageMetricId;
+    public int UsageMetricId { get; private set; }
 
-    public decimal Quantity { get; private set; } = quantity;
+    public decimal Quantity { get; private set; }
 
-    public DateTime RecordedAt { get; private set; } = recordedAt ?? DateTime.Now;
+    public DateTime RecordedAt { get; private set; }
 
-    public string? SourceReference { get; private set; } = sourceReference; // request ID, job ID, etc.
+    public string? SourceReference { get; private set; }
+
+    private UsageRecord() { }
+    
+    public UsageRecord(
+        int tenantId,
+        int usageMetricId,
+        decimal quantity,
+        DateTime? recordedAt = null,
+        string? sourceReference = null)
+    {
+        TenantId = tenantId;
+        UsageMetricId = usageMetricId;
+        Quantity = quantity;
+        RecordedAt = recordedAt ?? DateTime.Now;
+        SourceReference = sourceReference;
+    }
 }

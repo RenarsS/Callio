@@ -1,18 +1,30 @@
 ﻿using Callio.Admin.Domain.ValueObjects;
+using Callio.Core.Domain.Helpers;
 
 namespace Callio.Admin.Domain;
 
-public class PlanQuota(int planId, int usageMetricId, decimal limit, bool hardLimit, Money? overageUnitPrice = null)
+public class PlanQuota : Entity<int>
 {
-    public int PlanId { get; private set; } = planId;
+    public int PlanId { get; private set; }
 
-    public int UsageMetricId { get; private set; } = usageMetricId;
+    public int UsageMetricId { get; private set; }
 
-    public decimal Limit { get; private set; } = limit;
+    public decimal Limit { get; private set; }
 
-    public bool HardLimit { get; private set; } = hardLimit;
+    public bool HardLimit { get; private set; }
 
-    public Money? OverageUnitPrice { get; private set; } = overageUnitPrice;
+    public Money? OverageUnitPrice { get; private set; }
+
+    private PlanQuota() { }
+    
+    public PlanQuota(int planId, int usageMetricId, decimal limit, bool hardLimit, Money? overageUnitPrice = null)
+    {
+        PlanId = planId;
+        UsageMetricId = usageMetricId;
+        Limit = limit;
+        HardLimit = hardLimit;
+        OverageUnitPrice = overageUnitPrice;
+    }
     
     public bool IsUnlimited => Limit == -1;
     
