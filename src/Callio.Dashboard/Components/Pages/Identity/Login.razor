@@ -1,6 +1,62 @@
 ﻿@page "/Login"
-<h3>Login</h3>
+@layout CenteredLayout
 
-@code {
-    
-}
+<MudPaper Class="pa-8" Style="
+    width: 420px;
+    max-width: 100%;
+    border-radius: 20px;
+    background: #1a1d2e;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+">
+    <!-- Logo mark -->
+    <div style="display:flex;justify-content:center;margin-bottom:28px;">
+        <div style="
+            width:48px;height:48px;border-radius:14px;
+            background:rgba(99,102,241,0.15);
+            border:1px solid rgba(99,102,241,0.35);
+            display:flex;align-items:center;justify-content:center;">
+            <MudIcon Icon="@Icons.Material.Filled.Bolt" Style="color:#6366f1;font-size:26px;" />
+        </div>
+    </div>
+
+    <MudText Typo="Typo.h5" Align="Align.Center" Style="font-weight:700;margin-bottom:6px;">
+        Welcome back
+    </MudText>
+    <MudText Typo="Typo.body2" Align="Align.Center" Style="opacity:0.5;margin-bottom:32px;">
+        Sign in to your account
+    </MudText>
+
+    <MudTextField T="string"
+                  Label="Email address"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Email"
+                  FullWidth="true"
+                  Class="mb-4" />
+
+    <MudTextField T="string"
+                  Label="Password"
+                  Variant="Variant.Outlined"
+                  InputType="InputType.Password"
+                  FullWidth="true"
+                  Class="mb-2" />
+
+    <MudLink Href="/forgot-password" Typo="Typo.caption" Style="display:block;text-align:right;margin-bottom:24px;">
+        Forgot password?
+    </MudLink>
+
+    <MudButton Variant="Variant.Filled"
+               Color="Color.Primary"
+               FullWidth="true"
+               Size="Size.Large"
+               Style="border-radius:10px;font-weight:600;letter-spacing:0.2px;padding:12px;">
+        Sign in
+    </MudButton>
+
+    <MudDivider Class="my-5" />
+
+    <MudText Typo="Typo.body2" Align="Align.Center" Style="opacity:0.5;">
+        Don't have an account?
+        <MudLink Href="/register" Style="font-weight:600;">Create one</MudLink>
+    </MudText>
+</MudPaper>

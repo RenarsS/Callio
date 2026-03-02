@@ -1,5 +1,6 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var sql = builder.AddProject<Projects.Callio_API>("api");
+builder.AddProject<Projects.Callio_API>("api");
+builder.AddProject<Projects.Callio_Dashboard>("dashboard");
 
 builder.Build().Run();

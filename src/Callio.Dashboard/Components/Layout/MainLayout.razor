@@ -1,30 +1,52 @@
 ﻿@inherits LayoutComponentBase
 
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
 <MudPopoverProvider />
-
 <MudDialogProvider />
-
 <MudSnackbarProvider />
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu/>
-    </div>
+@Body
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+@code {
+    public static MudTheme AppTheme = new MudTheme
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary        = "#6366f1",
+            PrimaryDarken  = "#4f46e5",
+            PrimaryLighten = "#818cf8",
+            Secondary      = "#8b5cf6",
+            Background     = "#0f1117",
+            BackgroundGray = "#13151f",
+            Surface        = "#1a1d2e",
+            AppbarBackground   = "#13151f",
+            DrawerBackground   = "#13151f",
+            DrawerText         = "rgba(255,255,255,0.7)",
+            DrawerIcon         = "rgba(255,255,255,0.5)",
+            Divider            = "rgba(255,255,255,0.07)",
+            TableLines         = "rgba(255,255,255,0.07)",
+            LinesInputs        = "rgba(255,255,255,0.15)",
+            TextPrimary        = "rgba(255,255,255,0.92)",
+            TextSecondary      = "rgba(255,255,255,0.55)",
+            ActionDefault      = "rgba(255,255,255,0.4)",
+            OverlayDark        = "rgba(0,0,0,0.6)",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = new[] { "Inter", "sans-serif" } },
+            H1      = new H1Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "700" },
+            H2      = new H2Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "700" },
+            H3      = new H3Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "600" },
+            H4      = new H4Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "600" },
+            H5      = new H5Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "600" },
+            H6      = new H6Typography      { FontFamily = new[] { "Inter", "sans-serif" }, FontWeight = "600" },
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            AppbarHeight  = "64px",
+            DrawerWidthLeft = "260px",
+        }
+    };
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
-
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+    private MudTheme _theme = AppTheme;
+}
