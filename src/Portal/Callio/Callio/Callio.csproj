@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="MudBlazor" Version="9.2.0" />
         <ProjectReference Include="..\Callio.Client\Callio.Client.csproj"/>
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.3"/>
     </ItemGroup>
