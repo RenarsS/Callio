@@ -34,4 +34,10 @@ public class ApplicationUser : IdentityUser
             Type =  UserType.PowerUser,
             TenantId = tenantId
         };
+
+    public void LinkToTenant(int tenantId)
+    {
+        TenantId = tenantId;
+    }
+
 }

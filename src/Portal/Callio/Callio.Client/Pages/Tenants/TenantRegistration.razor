@@ -1,0 +1,90 @@
+﻿@page "/tenant-registration"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject Services.TenantRequestApi TenantRequestApi
+
+<PageTitle>Tenant registration</PageTitle>
+
+<MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
+    <MudText Typo="Typo.h4" GutterBottom="true">Register and request tenant creation</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        This UI is intentionally simple: register the user first, then submit the tenant request payload that the dashboard will later review.
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudText Typo="Typo.h6" Class="mb-2">User registration</MudText>
+            <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RegisterAsync" Disabled="_busy">Register user</MudButton>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudText Typo="Typo.h6" Class="mb-2">Tenant request</MudText>
+            <MudTextField @bind-Value="_model.RequestedByUserId" Label="Registered user id" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.RequestedByFirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.RequestedByLastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" />
+            <MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" Class="mb-3" />
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitRequestAsync" Disabled="_busy">Submit request</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">@_message</MudAlert>
+    }
+</MudPaper>
+
+@code {
+    private readonly TenantRegistrationVm _model = new();
+    private bool _busy;
+    private string? _message;
+
+    private async Task RegisterAsync()
+    {
+        _busy = true;
+        try
+        {
+            await TenantRequestApi.RegisterAsync(new(_model.Email, _model.Password));
+            _message = "User registration request was sent. Paste the created Identity user id if you want to simulate the next step manually.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SubmitRequestAsync()
+    {
+        _busy = true;
+        try
+        {
+            await TenantRequestApi.CreateTenantRequestAsync(new(
+                _model.TenantName,
+                _model.RequestedByUserId,
+                _model.Email,
+                _model.RequestedByFirstName,
+                _model.RequestedByLastName,
+                _model.CompanyName,
+                _model.Notes));
+            _message = "Tenant creation request submitted for dashboard review.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class TenantRegistrationVm
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string RequestedByUserId { get; set; } = string.Empty;
+        public string RequestedByFirstName { get; set; } = string.Empty;
+        public string RequestedByLastName { get; set; } = string.Empty;
+        public string CompanyName { get; set; } = string.Empty;
+        public string TenantName { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+    }
+}

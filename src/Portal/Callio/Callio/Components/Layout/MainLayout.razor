@@ -1,28 +1,45 @@
 ﻿@inherits LayoutComponentBase
-<MudThemeProvider />
+
+<MudThemeProvider Theme="_theme" IsDarkMode="true" />
 <MudPopoverProvider />
-
 <MudDialogProvider />
-
 <MudSnackbarProvider />
-<div class="page">
-    <div class="sidebar">
-        <NavMenu/>
-    </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+<div class="portal-shell">
+    <header class="portal-header">
+        <div class="portal-brand">
+            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" />
+            <span>Callio Portal</span>
         </div>
 
-        <article class="content px-4">
-            @Body
-        </article>
+        <nav class="portal-nav">
+            <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
+            <NavLink href="/tenant-registration">Register & request tenant</NavLink>
+            <NavLink href="/tenant-request-status">Request status</NavLink>
+        </nav>
+    </header>
+
+    <main class="portal-main">
+        @Body
     </main>
 </div>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#6366f1",
+            PrimaryDarken = "#4f46e5",
+            PrimaryLighten = "#818cf8",
+            Secondary = "#8b5cf6",
+            Background = "#0f1117",
+            BackgroundGray = "#13151f",
+            Surface = "#1a1d2e",
+            AppbarBackground = "#13151f",
+            DrawerBackground = "#13151f",
+            TextPrimary = "rgba(255,255,255,0.92)",
+            TextSecondary = "rgba(255,255,255,0.55)"
+        }
+    };
+}

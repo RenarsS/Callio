@@ -8,6 +8,8 @@ namespace Callio.Admin.Infrastructure.Persistence;
 public class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContext(options)
 {
     public DbSet<Tenant> Tenants { get; set; }
+
+    public DbSet<TenantCreationRequest> TenantCreationRequests { get; set; }
     
     public DbSet<Subscription> Subscriptions { get; set; }
     
@@ -29,6 +31,18 @@ public class AdminDbContext(DbContextOptions<AdminDbContext> options) : DbContex
         base.OnModelCreating(modelBuilder);
         
         modelBuilder.HasDefaultSchema("admin");
+
+        modelBuilder.Entity<TenantCreationRequest>(builder =>
+        {
+            builder.Property(x => x.TenantName).HasMaxLength(200);
+            builder.Property(x => x.RequestedByUserId).HasMaxLength(128);
+            builder.Property(x => x.RequestedByEmail).HasMaxLength(256);
+            builder.Property(x => x.RequestedByFirstName).HasMaxLength(100);
+            builder.Property(x => x.RequestedByLastName).HasMaxLength(100);
+            builder.Property(x => x.CompanyName).HasMaxLength(200);
+            builder.Property(x => x.Notes).HasMaxLength(2000);
+            builder.Property(x => x.DecisionNote).HasMaxLength(2000);
+        });
 
         modelBuilder.Entity<Tenant>()
             .OwnsOne(t => t.Status, statusBuilder =>
