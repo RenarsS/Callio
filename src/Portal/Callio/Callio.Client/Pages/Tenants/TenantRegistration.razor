@@ -4,71 +4,96 @@
 
 <PageTitle>Tenant registration</PageTitle>
 
-<MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
+<MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);max-width:820px;margin:auto;">
     <MudText Typo="Typo.h4" GutterBottom="true">Register and request tenant creation</MudText>
     <MudText Typo="Typo.body2" Class="mb-4">
-        This UI is intentionally simple: register the user first, then submit the tenant request payload that the dashboard will later review.
+        Complete one form to create the portal user and submit the tenant creation request for dashboard review.
     </MudText>
 
     <MudGrid>
         <MudItem xs="12" md="6">
-            <MudText Typo="Typo.h6" Class="mb-2">User registration</MudText>
-            <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="RegisterAsync" Disabled="_busy">Register user</MudButton>
+            <MudTextField @bind-Value="_model.FirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
         </MudItem>
-
         <MudItem xs="12" md="6">
-            <MudText Typo="Typo.h6" Class="mb-2">Tenant request</MudText>
-            <MudTextField @bind-Value="_model.RequestedByUserId" Label="Registered user id" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.RequestedByFirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.RequestedByLastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" />
-            <MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" Class="mb-3" />
-            <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="SubmitRequestAsync" Disabled="_busy">Submit request</MudButton>
+            <MudTextField @bind-Value="_model.LastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" Class="mb-3" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" AutoGrow="true" Class="mb-4" />
         </MudItem>
     </MudGrid>
 
-    @if (!string.IsNullOrWhiteSpace(_message))
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync" Disabled="@(_busy || !CanSubmit)">
+        Submit registration request
+    </MudButton>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">@_message</MudAlert>
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">@_error</MudAlert>
+    }
+
+    @if (_result is not null)
+    {
+        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-4">
+            @_result.Message<br />
+            User id: @_result.UserId<br />
+            Tenant request id: @_result.TenantRequestId<br />
+            Status: @_result.Status
+        </MudAlert>
     }
 </MudPaper>
 
 @code {
     private readonly TenantRegistrationVm _model = new();
     private bool _busy;
-    private string? _message;
+    private string? _error;
+    private Services.PortalRegistrationResponse? _result;
 
-    private async Task RegisterAsync()
+    private bool CanSubmit =>
+        !string.IsNullOrWhiteSpace(_model.FirstName) &&
+        !string.IsNullOrWhiteSpace(_model.LastName) &&
+        !string.IsNullOrWhiteSpace(_model.Email) &&
+        !string.IsNullOrWhiteSpace(_model.Password) &&
+        !string.IsNullOrWhiteSpace(_model.CompanyName) &&
+        !string.IsNullOrWhiteSpace(_model.TenantName);
+
+    private async Task SubmitAsync()
     {
+        if (!CanSubmit)
+        {
+            _error = "Please complete all required fields.";
+            return;
+        }
+
         _busy = true;
+        _error = null;
+        _result = null;
+
         try
         {
-            await TenantRequestApi.RegisterAsync(new(_model.Email, _model.Password));
-            _message = "User registration request was sent. Paste the created Identity user id if you want to simulate the next step manually.";
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
-
-    private async Task SubmitRequestAsync()
-    {
-        _busy = true;
-        try
-        {
-            await TenantRequestApi.CreateTenantRequestAsync(new(
-                _model.TenantName,
-                _model.RequestedByUserId,
+            _result = await TenantRequestApi.RegisterUserAndTenantAsync(new(
                 _model.Email,
-                _model.RequestedByFirstName,
-                _model.RequestedByLastName,
+                _model.Password,
+                _model.FirstName,
+                _model.LastName,
                 _model.CompanyName,
+                _model.TenantName,
                 _model.Notes));
-            _message = "Tenant creation request submitted for dashboard review.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
         }
         finally
         {
@@ -78,11 +103,10 @@
 
     private sealed class TenantRegistrationVm
     {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public string RequestedByUserId { get; set; } = string.Empty;
-        public string RequestedByFirstName { get; set; } = string.Empty;
-        public string RequestedByLastName { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
         public string? Notes { get; set; }

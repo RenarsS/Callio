@@ -22,6 +22,7 @@
     <ItemGroup>
       <ProjectReference Include="..\Admin\Callio.Admin.API\Callio.Admin.API.csproj" />
       <ProjectReference Include="..\Admin\Callio.Admin.Infrastructure\Callio.Admin.Infrastructure.csproj" />
+      <ProjectReference Include="..\Identity\Callio.Identity.API\Callio.Identity.API.csproj" />
       <ProjectReference Include="..\Identity\Callio.Identity.Infrastructure\Callio.Identity.Infrastructure.csproj" />
     </ItemGroup>
 

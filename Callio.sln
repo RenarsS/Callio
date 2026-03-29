@@ -47,6 +47,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.Domain", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.Infrastructure", "src\Identity\Callio.Identity.Infrastructure\Callio.Identity.Infrastructure.csproj", "{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.Application", "src\Identity\Callio.Identity.Application\Callio.Identity.Application.csproj", "{265848F9-1723-4C93-A719-9758F37B5888}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Identity.API", "src\Identity\Callio.Identity.API\Callio.Identity.API.csproj", "{E840E9EE-9135-443C-97EB-843910AB3240}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,6 +75,8 @@ Global
 		{EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA} = {163AABAE-3B9A-4C4B-8F55-66865E54E32C}
 		{01742DBF-FC50-43BB-A6C1-0B4C566F16A6} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
 		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
+		{265848F9-1723-4C93-A719-9758F37B5888} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
+		{E840E9EE-9135-443C-97EB-843910AB3240} = {EAAFA8F0-E9BE-4B82-BAB1-A7219B0890EA}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{841EAD5F-6E48-4BA7-ADA0-57BFBD1F2112}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -129,5 +135,13 @@ Global
 		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8D2C31C9-A2B3-42EB-B971-4C8B2EFE09A8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{265848F9-1723-4C93-A719-9758F37B5888}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{265848F9-1723-4C93-A719-9758F37B5888}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{265848F9-1723-4C93-A719-9758F37B5888}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{265848F9-1723-4C93-A719-9758F37B5888}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E840E9EE-9135-443C-97EB-843910AB3240}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E840E9EE-9135-443C-97EB-843910AB3240}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E840E9EE-9135-443C-97EB-843910AB3240}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E840E9EE-9135-443C-97EB-843910AB3240}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -4,33 +4,30 @@ namespace Callio.Client.Services;
 
 public class TenantRequestApi(HttpClient httpClient)
 {
-    public async Task RegisterAsync(RegisterPortalUserRequest request, CancellationToken cancellationToken = default)
+    public async Task<PortalRegistrationResponse> RegisterUserAndTenantAsync(RegisterPortalUserAndTenantRequest request, CancellationToken cancellationToken = default)
     {
-        var response = await httpClient.PostAsJsonAsync("/register", new
-        {
-            email = request.Email,
-            password = request.Password,
-            firstName = "N/A",
-            lastName = "N/A",
-        }, cancellationToken);
-
+        var response = await httpClient.PostAsJsonAsync("/api/portal/onboarding/register-tenant", request, cancellationToken);
         response.EnsureSuccessStatusCode();
-    }
 
-    public async Task CreateTenantRequestAsync(CreatePortalTenantRequest request, CancellationToken cancellationToken = default)
-    {
-        var response = await httpClient.PostAsJsonAsync("/api/portal/tenant-requests", request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<PortalRegistrationResponse>(cancellationToken)
+               ?? throw new InvalidOperationException("Portal onboarding response was empty.");
     }
 }
 
-public record RegisterPortalUserRequest(string Email, string Password);
-
-public record CreatePortalTenantRequest(
-    string TenantName,
-    string RequestedByUserId,
-    string RequestedByEmail,
-    string RequestedByFirstName,
-    string RequestedByLastName,
+public record RegisterPortalUserAndTenantRequest(
+    string Email,
+    string Password,
+    string FirstName,
+    string LastName,
     string CompanyName,
+    string TenantName,
     string? Notes);
+
+public record PortalRegistrationResponse(
+    string UserId,
+    int TenantRequestId,
+    string Email,
+    string TenantName,
+    string CompanyName,
+    string Status,
+    string Message);

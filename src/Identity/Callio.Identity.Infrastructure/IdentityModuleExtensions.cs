@@ -1,5 +1,7 @@
-﻿using Callio.Identity.Domain;
+﻿using Callio.Identity.Application.PortalOnboarding;
+using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure.Persistence;
+using Callio.Identity.Infrastructure.Services;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -17,6 +19,9 @@ public static class IdentityModuleExtensions
 
         services.AddIdentityApiEndpoints<ApplicationUser>()
             .AddEntityFrameworkStores<AppIdentityDbContext>();
+        
+        services.AddScoped<IPortalOnboardingService, PortalOnboardingService>();
+
 
         services.AddAuthentication();
         services.AddAuthorization();
