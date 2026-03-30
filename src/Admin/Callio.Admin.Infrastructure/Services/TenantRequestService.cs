@@ -1,5 +1,6 @@
 ﻿using Callio.Admin.Application.Tenants;
 using Callio.Admin.Domain;
+using System.Text.RegularExpressions;
 using Callio.Admin.Domain.ValueObjects;
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Domain;
@@ -69,6 +70,19 @@ public class TenantRequestService(
         adminDbContext.Tenants.Add(tenant);
         await adminDbContext.SaveChangesAsync(cancellationToken);
 
+        var selectedPlanId = await ResolveRequestedPlanIdAsync(request, cancellationToken);
+        if (selectedPlanId.HasValue)
+        {
+            var now = DateTime.UtcNow;
+            var subscription = new Subscription(
+                tenant.Id,
+                selectedPlanId.Value,
+                new DateRange(now, now.AddMonths(1), now));
+
+            adminDbContext.Subscriptions.Add(subscription);
+            await adminDbContext.SaveChangesAsync(cancellationToken);
+        }
+
         user.LinkToTenant(tenant.Id);
         await userManager.UpdateAsync(user);
 
@@ -102,4 +116,34 @@ public class TenantRequestService(
             request.ProcessedAtUtc,
             request.DecisionNote,
             request.TenantId);
+
+    private async Task<int?> ResolveRequestedPlanIdAsync(TenantCreationRequest request, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Notes))
+        {
+            var idMatch = Regex.Match(request.Notes, @"Selected subscription plan id:\s*(\d+)", RegexOptions.IgnoreCase);
+            if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var parsedId))
+            {
+                var exists = await adminDbContext.Plans.AnyAsync(x => x.Id == parsedId, cancellationToken);
+                if (exists)
+                    return parsedId;
+            }
+
+            var nameMatch = Regex.Match(request.Notes, @"Selected subscription plan:\s*(.+)", RegexOptions.IgnoreCase);
+            if (nameMatch.Success)
+            {
+                var planName = nameMatch.Groups[1].Value.Trim();
+                var planId = await adminDbContext.Plans
+                    .Where(x => x.Name == planName)
+                    .Select(x => (int?)x.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (planId.HasValue)
+                    return planId.Value;
+            }
+        }
+
+        return null;
+    }
+
 }

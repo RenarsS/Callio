@@ -1,0 +1,54 @@
+﻿@page "/dashboard/tenants"
+@layout DashboardLayout
+@rendermode InteractiveServer
+@inject Callio.Admin.Services.AdminApiClient Api
+
+<PageTitle>Tenants</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudText Typo="Typo.h5">Tenant directory</MudText>
+        <MudText Typo="Typo.body2">Operational view of approved tenants and their current subscription linkage.</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudTable Items="_tenants" Hover="true" Dense="true" Filter="FilterTenant">
+            <ToolBarContent>
+                <MudTextField @bind-Value="_search" Placeholder="Search tenant or contact" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Tenant</MudTh><MudTh>Contact</MudTh><MudTh>Status</MudTh><MudTh>Plan</MudTh><MudTh>Created</MudTh><MudTh>Tenant code</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                    <MudText Typo="Typo.caption">Activated @context.ActivatedAt.ToLocalTime().ToString("dd MMM yyyy")</MudText>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2">@context.ContactName</MudText>
+                    <MudText Typo="Typo.caption">@context.ContactEmail</MudText>
+                </MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="@(context.Status.Contains("Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">@context.Status</MudChip></MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2">@(context.CurrentPlanName ?? "Not assigned")</MudText>
+                    <MudText Typo="Typo.caption">@(context.SubscriptionStatus ?? "No subscription")</MudText>
+                </MudTd>
+                <MudTd>@context.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                <MudTd>@context.TenantCode</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private IReadOnlyList<Callio.Admin.Services.TenantItem> _tenants = [];
+    private string _search = string.Empty;
+
+    protected override async Task OnInitializedAsync() => _tenants = await Api.GetTenantsAsync();
+
+    private bool FilterTenant(Callio.Admin.Services.TenantItem tenant)
+        => string.IsNullOrWhiteSpace(_search)
+           || tenant.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+           || tenant.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+           || tenant.ContactEmail.Contains(_search, StringComparison.OrdinalIgnoreCase);
+}

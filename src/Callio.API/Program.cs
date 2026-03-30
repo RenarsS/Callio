@@ -1,5 +1,6 @@
 using Carter;
 using Callio.Admin.Infrastructure;
+using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Infrastructure;
 using Scalar.AspNetCore;
 
@@ -23,6 +24,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+    await AdminDataSeeder.SeedAsync(db);
+}
 
 app.MapIdentityModule();
 app.MapCarter();

@@ -1,9 +1,13 @@
 ﻿using System.Net.Http.Json;
+using Callio.Client.Models;
 
 namespace Callio.Client.Services;
 
 public class TenantRequestApi(HttpClient httpClient)
 {
+    public async Task<IReadOnlyList<PortalPlanResponse>> GetPlansAsync(CancellationToken cancellationToken = default)
+        => await httpClient.GetFromJsonAsync<List<PortalPlanResponse>>("/api/portal/plans", cancellationToken) ?? [];
+
     public async Task<PortalRegistrationResponse> RegisterUserAndTenantAsync(RegisterPortalUserAndTenantRequest request, CancellationToken cancellationToken = default)
     {
         var response = await httpClient.PostAsJsonAsync("/api/portal/onboarding/register-tenant", request, cancellationToken);
@@ -21,6 +25,8 @@ public record RegisterPortalUserAndTenantRequest(
     string LastName,
     string CompanyName,
     string TenantName,
+    int? RequestedPlanId,
+    string? RequestedPlanName,
     string? Notes);
 
 public record PortalRegistrationResponse(

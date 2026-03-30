@@ -1,0 +1,100 @@
+﻿@page "/dashboard/tenant-requests"
+@layout DashboardLayout
+@rendermode InteractiveServer
+@inject Callio.Admin.Services.AdminApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Tenant requests</PageTitle>
+
+<MudStack Spacing="3">
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h5">Tenant approval workflow</MudText>
+                <MudText Typo="Typo.body2">Approve or deny tenant creation requests from the Callio portal.</MudText>
+            </div>
+            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudTable Items="_requests" Hover="true" Dense="true" Filter="FilterRequest">
+            <ToolBarContent>
+                <MudTextField @bind-Value="_search" Placeholder="Search request, company, email" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Margin="Margin.Dense" />
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Tenant</MudTh><MudTh>Company</MudTh><MudTh>Requestor</MudTh><MudTh>Status</MudTh><MudTh>Submitted</MudTh><MudTh>Note</MudTh><MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Typo="Typo.subtitle2">@context.TenantName</MudText>
+                    <MudText Typo="Typo.caption">ID: @context.Id</MudText>
+                </MudTd>
+                <MudTd>@context.CompanyName</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2">@context.RequestedByFullName</MudText>
+                    <MudText Typo="Typo.caption">@context.RequestedByEmail</MudText>
+                </MudTd>
+                <MudTd><MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@GetStatusLabel(context.Status)</MudChip></MudTd>
+                <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                <MudTd>@context.DecisionNote</MudTd>
+                <MudTd>
+                    @if (context.Status == 1)
+                    {
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Success" OnClick="() => ProcessAsync(context.Id, true)">Approve</MudButton>
+                            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Error" OnClick="() => ProcessAsync(context.Id, false)">Reject</MudButton>
+                        </MudStack>
+                    }
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudText Typo="Typo.subtitle1">Decision note</MudText>
+        <MudTextField @bind-Value="_decisionNote" Variant="Variant.Outlined" Lines="3" AutoGrow="true" Placeholder="Optional note added when approving or rejecting the next selected request." />
+    </MudPaper>
+</MudStack>
+
+@code {
+    private IReadOnlyList<Callio.Admin.Services.TenantRequestItem> _requests = [];
+    private string _search = string.Empty;
+    private string _decisionNote = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _requests = await Api.GetTenantRequestsAsync();
+        StateHasChanged();
+    }
+
+    private bool FilterRequest(Callio.Admin.Services.TenantRequestItem item)
+        => string.IsNullOrWhiteSpace(_search)
+           || item.TenantName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+           || item.CompanyName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+           || item.RequestedByEmail.Contains(_search, StringComparison.OrdinalIgnoreCase)
+           || item.RequestedByFullName.Contains(_search, StringComparison.OrdinalIgnoreCase);
+
+    private async Task ProcessAsync(int requestId, bool approve)
+    {
+        try
+        {
+            if (approve)
+                await Api.ApproveRequestAsync(requestId, _decisionNote);
+            else
+                await Api.RejectRequestAsync(requestId, _decisionNote);
+
+            Snackbar.Add(approve ? "Request approved." : "Request rejected.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static Color GetStatusColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };
+    private static string GetStatusLabel(int status) => status switch { 2 => "Approved", 3 => "Rejected", _ => "Pending" };
+}

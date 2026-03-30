@@ -12,6 +12,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Callio.Admin.Application\Callio.Admin.Application.csproj" />
+      <ProjectReference Include="..\Callio.Admin.Infrastructure\Callio.Admin.Infrastructure.csproj" />
     </ItemGroup>
 
 </Project>

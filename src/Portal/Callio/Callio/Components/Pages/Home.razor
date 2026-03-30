@@ -4,35 +4,18 @@
 
 <MudStack Spacing="3">
     <MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
-        <MudText Typo="Typo.h3" GutterBottom="true">Tenant onboarding for the Callio platform</MudText>
-        <MudText Typo="Typo.body1" Class="mb-4">
-            This portal is the customer-facing entry point for platform access. A user registers, submits a tenant creation request,
-            and then waits for internal approval from the Callio dashboard.
-        </MudText>
+        <MudText Typo="Typo.h3" GutterBottom="true">Launch your tenant on the Callio platform</MudText>
+        <MudText Typo="Typo.body1" Class="mb-4">The portal lets a customer register the first user, choose a subscription plan, and request a tenant for approval in the Callio admin dashboard.</MudText>
         <MudStack Row="true" Spacing="2">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-registration">Start registration</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">See request statuses</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">See request status</MudButton>
         </MudStack>
     </MudPaper>
 
     <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
-                <MudText Typo="Typo.h6">1. Register user</MudText>
-                <MudText Typo="Typo.body2">The portal registers a person in Identity first, so the request belongs to a real account.</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
-                <MudText Typo="Typo.h6">2. Submit request</MudText>
-                <MudText Typo="Typo.body2">The tenant request is stored in the admin module with pending status.</MudText>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
-                <MudText Typo="Typo.h6">3. Admin decision</MudText>
-                <MudText Typo="Typo.body2">Dashboard admins approve or reject. Approval creates the tenant and links the requesting user.</MudText>
-            </MudPaper>
-        </MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">1. Register user</MudText><MudText Typo="Typo.body2">Create the first power user for the future tenant.</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">2. Choose plan</MudText><MudText Typo="Typo.body2">Pick a seeded subscription plan before submitting onboarding.</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">3. Submit request</MudText><MudText Typo="Typo.body2">The tenant request is stored in the admin module with pending status.</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">4. Admin approval</MudText><MudText Typo="Typo.body2">Approval creates the tenant and links the requesting user.</MudText></MudPaper></MudItem>
     </MudGrid>
 </MudStack>

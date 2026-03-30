@@ -4,61 +4,87 @@
 
 <PageTitle>Tenant registration</PageTitle>
 
-<MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);max-width:820px;margin:auto;">
-    <MudText Typo="Typo.h4" GutterBottom="true">Register and request tenant creation</MudText>
-    <MudText Typo="Typo.body2" Class="mb-4">
-        Complete one form to create the portal user and submit the tenant creation request for dashboard review.
-    </MudText>
+<MudStack Spacing="3">
+    <MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);max-width:1100px;margin:auto;">
+        <MudText Typo="Typo.h4" GutterBottom="true">Register and request tenant creation</MudText>
+        <MudText Typo="Typo.body2" Class="mb-4">Create the first portal user, pick a subscription plan, and submit the onboarding request for Callio admin review.</MudText>
 
-    <MudGrid>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.FirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.LastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12" md="6">
-            <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" Required="true" />
-        </MudItem>
-        <MudItem xs="12">
-            <MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" AutoGrow="true" Class="mb-4" />
-        </MudItem>
-    </MudGrid>
+        <MudGrid>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.FirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.LastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
+            <MudItem xs="12"><MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" AutoGrow="true" Class="mb-2" /></MudItem>
+        </MudGrid>
 
-    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAsync" Disabled="@(_busy || !CanSubmit)">
-        Submit registration request
-    </MudButton>
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.h6" Class="mb-2">Choose a subscription plan</MudText>
 
-    @if (!string.IsNullOrWhiteSpace(_error))
-    {
-        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">@_error</MudAlert>
-    }
+        <MudGrid>
+            @foreach (var plan in _plans)
+            {
+                var selected = _model.RequestedPlanId == plan.Id;
+                <MudItem xs="12" md="4">
+                    <div @onclick="() => SelectPlan(plan)">
+                        <MudPaper Class="pa-4 h-100" Style="@GetPlanCardStyle(selected)">
+                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
+                                <MudText Typo="Typo.h6">@plan.Name</MudText>
+                                @if (selected)
+                                {
+                                    <MudChip T="string" Color="Color.Primary" Size="Size.Small">Selected</MudChip>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Class="mb-3">@plan.Description</MudText>
+                            <MudText Typo="Typo.h5">@plan.BasePrice @plan.Currency</MudText>
+                            <MudText Typo="Typo.caption">Billed @plan.BillingLabel.ToLowerInvariant()</MudText>
+                            <MudDivider Class="my-3" />
+                            @foreach (var quota in plan.Quotas.Take(4))
+                            {
+                                <MudText Typo="Typo.body2">• @quota.Metric: @quota.Limit</MudText>
+                            }
+                        </MudPaper>
+                    </div>
+                </MudItem>
+            }
+        </MudGrid>
 
-    @if (_result is not null)
-    {
-        <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-4">
-            @_result.Message<br />
-            User id: @_result.UserId<br />
-            Tenant request id: @_result.TenantRequestId<br />
-            Status: @_result.Status
-        </MudAlert>
-    }
-</MudPaper>
+        <MudStack Row="true" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="SubmitAsync" Disabled="@(_busy || !CanSubmit)">Submit registration request</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/">Back</MudButton>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">@_error</MudAlert>
+        }
+
+        @if (_result is not null)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-4">
+                @_result.Message<br />
+                User id: @_result.UserId<br />
+                Tenant request id: @_result.TenantRequestId<br />
+                Status: @_result.Status
+            </MudAlert>
+        }
+    </MudPaper>
+</MudStack>
 
 @code {
     private readonly TenantRegistrationVm _model = new();
+    private IReadOnlyList<Callio.Client.Models.PortalPlanResponse> _plans = [];
     private bool _busy;
     private string? _error;
     private Services.PortalRegistrationResponse? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = await TenantRequestApi.GetPlansAsync();
+        if (_plans.Count > 0)
+            SelectPlan(_plans[0]);
+    }
 
     private bool CanSubmit =>
         !string.IsNullOrWhiteSpace(_model.FirstName) &&
@@ -66,13 +92,23 @@
         !string.IsNullOrWhiteSpace(_model.Email) &&
         !string.IsNullOrWhiteSpace(_model.Password) &&
         !string.IsNullOrWhiteSpace(_model.CompanyName) &&
-        !string.IsNullOrWhiteSpace(_model.TenantName);
+        !string.IsNullOrWhiteSpace(_model.TenantName) &&
+        _model.RequestedPlanId is not null;
+
+    private static string GetPlanCardStyle(bool selected)
+        => $"cursor:pointer;border-radius:22px;border:2px solid {(selected ? "#6366f1" : "rgba(255,255,255,0.08)")};background:{(selected ? "rgba(99,102,241,0.12)" : "rgba(17,24,39,0.62)")}";
+
+    private void SelectPlan(Callio.Client.Models.PortalPlanResponse plan)
+    {
+        _model.RequestedPlanId = plan.Id;
+        _model.RequestedPlanName = plan.Name;
+    }
 
     private async Task SubmitAsync()
     {
         if (!CanSubmit)
         {
-            _error = "Please complete all required fields.";
+            _error = "Please complete all required fields and choose a plan.";
             return;
         }
 
@@ -89,6 +125,8 @@
                 _model.LastName,
                 _model.CompanyName,
                 _model.TenantName,
+                _model.RequestedPlanId,
+                _model.RequestedPlanName,
                 _model.Notes));
         }
         catch (Exception ex)
@@ -109,6 +147,8 @@
         public string Password { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
+        public int? RequestedPlanId { get; set; }
+        public string? RequestedPlanName { get; set; }
         public string? Notes { get; set; }
     }
 }

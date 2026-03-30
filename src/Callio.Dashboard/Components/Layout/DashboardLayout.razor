@@ -1,77 +1,65 @@
 ﻿@inherits LayoutComponentBase
-@layout MainLayout
 
-@inject NavigationManager Nav
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
 
 <div class="dashboard-shell">
     <MudLayout>
-
-        <MudAppBar Elevation="0" Class="dashboard-appbar">
+        <MudAppBar Elevation="0" Fixed="true" Class="dashboard-appbar">
             <MudIconButton Icon="@Icons.Material.Filled.Menu"
                            Color="Color.Inherit"
                            Edge="Edge.Start"
-                           OnClick="ToggleDrawer" />
-
-            <MudText Typo="Typo.h6" Class="ml-2" Style="font-weight:600; letter-spacing:-0.3px;">
-                @_pageTitle
-            </MudText>
-
+                           OnClick="ToggleDrawer"
+                           AriaLabel="Toggle navigation" />
+            <MudText Typo="Typo.h6" Class="ml-2 dashboard-title">Callio Control Center</MudText>
             <MudSpacer />
-
-            <MudIconButton Icon="@Icons.Material.Outlined.Notifications" Color="Color.Inherit" />
-            <MudAvatar Style="width:36px;height:36px;background:#6366f1;font-size:14px;cursor:pointer;" Class="ml-2">
-                JD
-            </MudAvatar>
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Class="mr-3">
+                Admin workspace
+            </MudChip>
+            <MudAvatar Style="width:36px;height:36px;background:#6366f1;font-size:14px;">CA</MudAvatar>
         </MudAppBar>
 
         <MudDrawer @bind-Open="_drawerOpen"
                    Variant="DrawerVariant.Responsive"
                    Breakpoint="Breakpoint.Md"
+                   Overlay="true"
                    Elevation="0"
                    Class="dashboard-drawer">
-
             <div class="drawer-brand">
                 <div class="drawer-brand-icon">
-                    <MudIcon Icon="@Icons.Material.Filled.Bolt" Style="color:#6366f1;font-size:22px;" />
+                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Style="color:#7c3aed;font-size:20px;" />
                 </div>
-                <MudText Typo="Typo.h6" Style="font-weight:700;letter-spacing:-0.5px;">AppName</MudText>
+                <div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:700;">Callio Dashboard</MudText>
+                    <MudText Typo="Typo.caption">Tenant operations &amp; plans</MudText>
+                </div>
             </div>
 
             <MudDivider Class="mb-2" />
 
-            <MudNavMenu>
-                <MudNavLink Href="/dashboard"
-                            Match="NavLinkMatch.All"
-                            Icon="@Icons.Material.Outlined.Dashboard"
-                            IconColor="Color.Primary">
-                    Dashboard
+            <MudNavMenu Bordered="false" Rounded="true">
+                <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.SpaceDashboard">
+                    Overview
                 </MudNavLink>
-
-                <MudNavLink Href="/analytics"
-                            Icon="@Icons.Material.Outlined.BarChart"
-                            IconColor="Color.Primary">
-                    Analytics
+                <MudNavLink Href="/dashboard/tenant-requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FactCheck">
+                    Tenant requests
                 </MudNavLink>
-
-                <MudNavLink Href="/settings"
-                            Icon="@Icons.Material.Outlined.Settings"
-                            IconColor="Color.Primary">
-                    Settings
+                <MudNavLink Href="/dashboard/plans" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Payments">
+                    Plans &amp; quotas
+                </MudNavLink>
+                <MudNavLink Href="/dashboard/tenants" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Domain">
+                    Tenants
                 </MudNavLink>
             </MudNavMenu>
 
-            <MudSpacer />
-
-            <div class="drawer-user-strip">
-                <MudAvatar Style="width:32px;height:32px;background:#6366f1;font-size:12px;">JD</MudAvatar>
-                <div class="drawer-user-info">
-                    <MudText Typo="Typo.body2" Style="font-weight:600;line-height:1.2;">John Doe</MudText>
-                    <MudText Typo="Typo.caption" Style="opacity:0.5;">john@example.com</MudText>
-                </div>
-                <MudIconButton Icon="@Icons.Material.Outlined.Logout"
-                               Size="Size.Small"
-                               Color="Color.Default" />
-            </div>
+            <MudPaper Class="sidebar-cta" Elevation="0">
+                <MudText Typo="Typo.subtitle2" Class="mb-1">Multi-tenant RAG at a glance</MudText>
+                <MudText Typo="Typo.body2">
+                    Review onboarding, shape pricing, and prepare quota scaffolding for ingestion and usage telemetry.
+                </MudText>
+            </MudPaper>
         </MudDrawer>
 
         <MudMainContent Class="dashboard-main">
@@ -79,13 +67,14 @@
                 @Body
             </div>
         </MudMainContent>
-
     </MudLayout>
 </div>
 
 @code {
     private bool _drawerOpen = true;
-    private string _pageTitle = "Dashboard";
 
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
 }

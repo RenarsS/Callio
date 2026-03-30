@@ -1,7 +1,106 @@
 ﻿@page "/"
+@page "/dashboard"
+@layout DashboardLayout
+@rendermode InteractiveServer
+@inject Services.AdminApiClient Api
 
-<PageTitle>Home</PageTitle>
+<PageTitle>Dashboard overview</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudStack Spacing="3">
+    <MudPaper Class="hero-panel pa-6">
+        <MudGrid AlignItems="AlignItems.Center">
+            <MudItem xs="12" md="8">
+                <MudText Typo="Typo.h4" GutterBottom="true">Admin UI for your multitenant RAG platform</MudText>
+                <MudText Typo="Typo.body1" Class="mb-4">Track incoming tenant requests, manage subscription plans and quota scaffolding, and keep an eye on the current tenant base from one place.</MudText>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard/tenant-requests">Review requests</MudButton>
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/plans">Manage plans</MudButton>
+                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/tenants">View tenants</MudButton>
+                </MudStack>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Class="stat-card pa-4" Elevation="0">
+                    <MudText Typo="Typo.caption">Seeded pricing</MudText>
+                    <MudText Typo="Typo.h5" Class="mt-1">Starter · Growth · Enterprise</MudText>
+                    <MudText Typo="Typo.body2">Ready to be edited through dashboard CRUD screens.</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
 
-Welcome to your new app.
+    <MudGrid>
+        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Pending requests</MudText><MudText Typo="Typo.h4">@PendingCount</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Tenants</MudText><MudText Typo="Typo.h4">@_tenants.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Subscription plans</MudText><MudText Typo="Typo.h4">@_plans.Count</MudText></MudPaper></MudItem>
+        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Usage metrics</MudText><MudText Typo="Typo.h4">@_metrics.Count</MudText></MudPaper></MudItem>
+    </MudGrid>
+
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="stat-card pa-4" Elevation="0">
+                <MudText Typo="Typo.subtitle1">Tenant requests</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Approve or reject onboarding requests.</MudText>
+                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenant-requests">Open requests</MudButton>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="stat-card pa-4" Elevation="0">
+                <MudText Typo="Typo.subtitle1">Plans &amp; quotas</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Manage subscription plans, metrics, and quota scaffolding.</MudText>
+                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/plans">Open billing</MudButton>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudPaper Class="stat-card pa-4" Elevation="0">
+                <MudText Typo="Typo.subtitle1">Tenants</MudText>
+                <MudText Typo="Typo.body2" Class="mb-3">Review approved tenants and subscription linkage.</MudText>
+                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenants">Open tenants</MudButton>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudText Typo="Typo.h6">Latest onboarding requests</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/tenant-requests">Open queue</MudButton>
+        </MudStack>
+
+        <MudTable Items="@_requests.Take(5)" Hover="true" Dense="true">
+            <HeaderContent>
+                <MudTh>Tenant</MudTh>
+                <MudTh>Company</MudTh>
+                <MudTh>Requested by</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Requested</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.TenantName</MudTd>
+                <MudTd>@context.CompanyName</MudTd>
+                <MudTd>@context.RequestedByFullName</MudTd>
+                <MudTd><MudChip T="string" Color="@GetRequestColor(context.Status)" Size="Size.Small">@GetRequestStatusLabel(context.Status)</MudChip></MudTd>
+                <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+</MudStack>
+
+@code {
+    private IReadOnlyList<Services.TenantRequestItem> _requests = [];
+    private IReadOnlyList<Services.TenantItem> _tenants = [];
+    private IReadOnlyList<Services.PlanItem> _plans = [];
+    private IReadOnlyList<Services.UsageMetricItem> _metrics = [];
+
+    private int PendingCount => _requests.Count(x => x.Status == 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _requests = await Api.GetTenantRequestsAsync();
+        _tenants = await Api.GetTenantsAsync();
+        _plans = await Api.GetPlansAsync();
+        _metrics = await Api.GetUsageMetricsAsync();
+    }
+
+    private static Color GetRequestColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };
+    private static string GetRequestStatusLabel(int status) => status switch { 2 => "Approved", 3 => "Rejected", _ => "Pending" };
+}
