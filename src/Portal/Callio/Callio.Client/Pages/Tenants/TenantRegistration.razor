@@ -8,9 +8,9 @@
     <MudItem xs="12" lg="4">
         <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
             <div class="callio-kicker">Portal onboarding</div>
-            <MudText Typo="Typo.h4" GutterBottom="true">Register the first customer user and request a tenant.</MudText>
+            <MudText Typo="Typo.h4" GutterBottom="true">Register the first customer user, choose a plan, and request a tenant.</MudText>
             <MudText Typo="Typo.body2" Class="callio-lead">
-                This form covers the full handoff into Callio: account owner details, tenant name, company context, and any notes the dashboard reviewer should see.
+                This form covers the full handoff into Callio: account owner details, tenant name, company context, requested plan, and any notes the dashboard reviewer should see.
             </MudText>
 
             <MudDivider Class="my-4" />
@@ -25,6 +25,14 @@
 
             <div class="callio-step">
                 <div class="callio-step-number">2</div>
+                <div>
+                    <MudText Typo="Typo.subtitle1">Choose a starting plan</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">The selected plan is attached to the tenant request so the dashboard can provision the subscription on approval.</MudText>
+                </div>
+            </div>
+
+            <div class="callio-step">
+                <div class="callio-step-number">3</div>
                 <div>
                     <MudText Typo="Typo.subtitle1">Submit for review</MudText>
                     <MudText Typo="Typo.body2" Class="callio-lead">The tenant request enters the dashboard queue with a pending status and review note support.</MudText>
@@ -62,6 +70,67 @@
                     <MudItem xs="12" md="6">
                         <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Required="true" />
                     </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudText Typo="Typo.subtitle1">Starting plan</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">Choose one plan for the tenant request. This is a single selection and no dropdown is required.</MudText>
+                    </MudItem>
+                    <MudItem xs="12">
+                        @if (_plansLoading)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">Loading available plans...</MudAlert>
+                        }
+                        else if (!string.IsNullOrWhiteSpace(_planLoadError))
+                        {
+                            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_planLoadError</MudAlert>
+                        }
+                        else if (_plans.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No active plans are published yet. You can still submit the tenant request without a plan.</MudAlert>
+                        }
+                        else
+                        {
+                            <div class="callio-plan-grid mt-2">
+                                @foreach (var plan in _plans)
+                                {
+                                    var selected = _model.SelectedPlanId == plan.Id;
+                                    <label class="callio-plan-card @(selected ? "selected" : null)">
+                                        <input class="callio-plan-radio"
+                                               type="radio"
+                                               name="selected-plan"
+                                               checked="@selected"
+                                               @onchange="@(() => SelectPlan(plan.Id))" />
+                                        <div class="callio-plan-card-header">
+                                            <div>
+                                                <div class="callio-plan-card-title">@plan.Name</div>
+                                                <div class="callio-plan-card-price">@($"{plan.BasePrice} {plan.Currency} / {plan.BillingLabel}")</div>
+                                            </div>
+                                            @if (selected)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled">Selected</MudChip>
+                                            }
+                                        </div>
+
+                                        <div class="callio-plan-card-body">@plan.Description</div>
+
+                                        @if (plan.Quotas.Count > 0)
+                                        {
+                                            <div class="callio-plan-card-quotas">
+                                                @foreach (var quota in plan.Quotas.Take(3))
+                                                {
+                                                    <div class="callio-plan-card-quota">@quota.Metric: @quota.Limit</div>
+                                                }
+
+                                                @if (plan.Quotas.Count > 3)
+                                                {
+                                                    <div class="callio-plan-card-quota">+ @(plan.Quotas.Count - 3) more quotas</div>
+                                                }
+                                            </div>
+                                        }
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </MudItem>
                     <MudItem xs="12">
                         <MudTextField @bind-Value="_model.Notes" Label="Implementation notes" Variant="Variant.Outlined" Lines="5" />
                     </MudItem>
@@ -87,6 +156,13 @@
                     <MudText Typo="Typo.h5" GutterBottom="true">Callio received your onboarding request.</MudText>
                     <MudText Typo="Typo.body2" Class="callio-lead">@_result.Message</MudText>
 
+                    @if (!string.IsNullOrWhiteSpace(_result.SelectedPlanName))
+                    {
+                        <MudChip T="string" Class="mt-3" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            @($"Selected plan: {_result.SelectedPlanName}")
+                        </MudChip>
+                    }
+
                     <MudStack Row="true" Spacing="2" Class="mt-4">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@StatusHref">Open request status</MudButton>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/">Back to overview</MudButton>
@@ -99,8 +175,11 @@
 
 @code {
     private readonly TenantRegistrationVm _model = new();
+    private IReadOnlyList<Callio.Client.Models.PortalPlanResponse> _plans = [];
+    private bool _plansLoading = true;
     private bool _submitting;
     private string? _error;
+    private string? _planLoadError;
     private Callio.Client.Services.PortalRegistrationResponse? _result;
 
     private bool CanSubmit =>
@@ -109,15 +188,54 @@
         !string.IsNullOrWhiteSpace(_model.Email) &&
         !string.IsNullOrWhiteSpace(_model.Password) &&
         !string.IsNullOrWhiteSpace(_model.CompanyName) &&
-        !string.IsNullOrWhiteSpace(_model.TenantName);
+        !string.IsNullOrWhiteSpace(_model.TenantName) &&
+        !_plansLoading &&
+        string.IsNullOrWhiteSpace(_planLoadError) &&
+        (_plans.Count == 0 || _model.SelectedPlanId.HasValue);
 
     private string StatusHref =>
         _result is null
             ? "/tenant-request-status"
             : $"/tenant-request-status?requestId={_result.TenantRequestId}&email={Uri.EscapeDataString(_result.Email)}";
 
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _plans = await TenantRequestApi.GetPlansAsync();
+            if (_plans.Count > 0)
+                _model.SelectedPlanId = _plans[0].Id;
+        }
+        catch (Exception ex)
+        {
+            _planLoadError = ex.Message;
+        }
+        finally
+        {
+            _plansLoading = false;
+        }
+    }
+
     private async Task SubmitAsync()
     {
+        if (_plansLoading)
+        {
+            _error = "Wait until the available plans finish loading before submitting.";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_planLoadError))
+        {
+            _error = "The available plans could not be loaded. Refresh the page and try again.";
+            return;
+        }
+
+        if (_plans.Count > 0 && !_model.SelectedPlanId.HasValue)
+        {
+            _error = "Choose a starting plan before submitting the tenant request.";
+            return;
+        }
+
         if (!CanSubmit)
         {
             _error = "Complete the required account and tenant fields before submitting.";
@@ -137,6 +255,7 @@
                 _model.LastName,
                 _model.CompanyName,
                 _model.TenantName,
+                _model.SelectedPlanId,
                 _model.Notes));
         }
         catch (Exception ex)
@@ -149,6 +268,11 @@
         }
     }
 
+    private void SelectPlan(int planId)
+    {
+        _model.SelectedPlanId = planId;
+    }
+
     private sealed class TenantRegistrationVm
     {
         public string FirstName { get; set; } = string.Empty;
@@ -157,6 +281,7 @@
         public string Password { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
+        public int? SelectedPlanId { get; set; }
         public string? Notes { get; set; }
     }
 }

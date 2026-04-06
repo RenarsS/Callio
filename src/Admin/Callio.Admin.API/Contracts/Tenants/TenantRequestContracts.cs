@@ -7,6 +7,7 @@ public record RegisterPortalUserAndTenantRequest(
     string LastName,
     string CompanyName,
     string TenantName,
+    int? SelectedPlanId,
     string? Notes);
 
 public record ProcessTenantRequestRequest(

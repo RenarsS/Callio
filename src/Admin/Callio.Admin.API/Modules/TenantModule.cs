@@ -26,6 +26,7 @@ public class TenantModule : ICarterModule
                         request.LastName,
                         request.CompanyName,
                         request.TenantName,
+                        request.SelectedPlanId,
                         request.Notes),
                     cancellationToken);
 
@@ -43,6 +44,12 @@ public class TenantModule : ICarterModule
                 return Results.BadRequest("Email is required.");
 
             var result = await service.GetPortalStatusAsync(requestId, email, cancellationToken);
+            return result is null ? Results.NotFound() : Results.Ok(result);
+        });
+
+        portal.MapGet("/tenant-requests/by-tenant/{tenantId:int}", async (int tenantId, ITenantRequestService service, CancellationToken cancellationToken) =>
+        {
+            var result = await service.GetPortalStatusByTenantIdAsync(tenantId, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
         });
 

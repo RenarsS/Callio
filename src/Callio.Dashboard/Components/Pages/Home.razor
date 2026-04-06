@@ -62,21 +62,24 @@
         </MudPaper>
 
         <MudPaper Class="callio-card pa-5" Elevation="0">
-            <MudText Typo="Typo.h5" GutterBottom="true">Current focus</MudText>
-            <MudStack Spacing="2">
-                <MudPaper Class="callio-card pa-4" Elevation="0">
-                    <MudText Typo="Typo.subtitle1">Tenant requests</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">Approve or reject customer onboarding requests and write the customer-facing decision note.</MudText>
-                </MudPaper>
-                <MudPaper Class="callio-card pa-4" Elevation="0">
-                    <MudText Typo="Typo.subtitle1">Tenant registry</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">Review approved tenants, linked contact information, and current plan assignments.</MudText>
-                </MudPaper>
-                <MudPaper Class="callio-card pa-4" Elevation="0">
-                    <MudText Typo="Typo.subtitle1">Plans &amp; quotas</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">Keep pricing and quota scaffolding aligned with the multi-tenant RAG platform rollout.</MudText>
-                </MudPaper>
-            </MudStack>
+            <MudText Typo="Typo.h5" GutterBottom="true">Recent tenants</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead mb-4">Latest approved tenants and the plan state currently linked to each one.</MudText>
+
+            <MudTable Items="@_tenants.Take(5)" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Tenant</MudTh>
+                    <MudTh>Plan</MudTh>
+                    <MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                        <MudText Typo="Typo.caption">@context.ContactEmail</MudText>
+                    </MudTd>
+                    <MudTd>@(context.CurrentPlanName ?? "Not assigned")</MudTd>
+                    <MudTd>@(context.SubscriptionStatus ?? "No subscription")</MudTd>
+                </RowTemplate>
+            </MudTable>
         </MudPaper>
     </div>
 </MudStack>

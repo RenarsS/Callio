@@ -22,6 +22,7 @@ public class TenantRequestService(
         CancellationToken cancellationToken = default)
     {
         await EnsureCanSubmitRequestAsync(command.Email, command.TenantName, cancellationToken);
+        var selectedPlan = await ResolveSelectedPlanAsync(command.SelectedPlanId, cancellationToken);
 
         var existingUser = await userManager.FindByEmailAsync(command.Email);
         if (existingUser is not null)
@@ -37,6 +38,7 @@ public class TenantRequestService(
 
         try
         {
+            var storedNotes = BuildStoredNotes(command.Notes, selectedPlan);
             var request = new TenantCreationRequest(
                 command.TenantName,
                 user.Id,
@@ -44,7 +46,7 @@ public class TenantRequestService(
                 command.FirstName,
                 command.LastName,
                 command.CompanyName,
-                command.Notes,
+                storedNotes,
                 DateTime.UtcNow);
 
             adminDbContext.TenantCreationRequests.Add(request);
@@ -57,7 +59,9 @@ public class TenantRequestService(
                 request.TenantName,
                 request.CompanyName,
                 request.Status.ToString(),
-                "Portal user registered and tenant request submitted for Callio dashboard review.");
+                "Portal user registered and tenant request submitted for Callio dashboard review.",
+                selectedPlan?.Id,
+                selectedPlan?.Name);
         }
         catch
         {
@@ -73,41 +77,34 @@ public class TenantRequestService(
     {
         var trimmedEmail = email.Trim();
 
-        return await adminDbContext.TenantCreationRequests
+        var request = await adminDbContext.TenantCreationRequests
             .AsNoTracking()
             .Where(x => x.Id == requestId && x.RequestedByEmail == trimmedEmail)
-            .Select(x => new PortalTenantRequestStatusDto(
-                x.Id,
-                x.TenantName,
-                x.CompanyName,
-                x.RequestedByEmail,
-                $"{x.RequestedByFirstName} {x.RequestedByLastName}".Trim(),
-                x.Status.ToString(),
-                x.RequestedAtUtc,
-                x.ProcessedAtUtc,
-                x.DecisionNote,
-                x.TenantId))
             .FirstOrDefaultAsync(cancellationToken);
+
+        return request is null ? null : MapPortalStatus(request);
+    }
+
+    public async Task<PortalTenantRequestStatusDto?> GetPortalStatusByTenantIdAsync(
+        int tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await adminDbContext.TenantCreationRequests
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId)
+            .OrderByDescending(x => x.ProcessedAtUtc ?? x.RequestedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return request is null ? null : MapPortalStatus(request);
     }
 
     public async Task<IReadOnlyList<TenantRequestListItemDto>> GetAllAsync(CancellationToken cancellationToken = default)
-        => await adminDbContext.TenantCreationRequests
+        => (await adminDbContext.TenantCreationRequests
             .AsNoTracking()
             .OrderByDescending(x => x.RequestedAtUtc)
-            .Select(x => new TenantRequestListItemDto(
-                x.Id,
-                x.TenantName,
-                x.CompanyName,
-                x.RequestedByEmail,
-                $"{x.RequestedByFirstName} {x.RequestedByLastName}".Trim(),
-                x.Status,
-                x.RequestedAtUtc,
-                x.ProcessedAtUtc,
-                x.Notes,
-                x.DecisionNote,
-                x.ProcessedByUserId,
-                x.TenantId))
-            .ToListAsync(cancellationToken);
+            .ToListAsync(cancellationToken))
+            .Select(Map)
+            .ToList();
 
     public async Task<TenantRequestListItemDto?> ApproveAsync(ProcessTenantRequestCommand command, CancellationToken cancellationToken = default)
     {
@@ -191,7 +188,10 @@ public class TenantRequestService(
     }
 
     private static TenantRequestListItemDto Map(TenantCreationRequest request)
-        => new(
+    {
+        var selectedPlan = ExtractSelectedPlan(request.Notes);
+
+        return new TenantRequestListItemDto(
             request.Id,
             request.TenantName,
             request.CompanyName,
@@ -203,7 +203,29 @@ public class TenantRequestService(
             request.Notes,
             request.DecisionNote,
             request.ProcessedByUserId,
-            request.TenantId);
+            request.TenantId,
+            selectedPlan.PlanId,
+            selectedPlan.PlanName);
+    }
+
+    private static PortalTenantRequestStatusDto MapPortalStatus(TenantCreationRequest request)
+    {
+        var selectedPlan = ExtractSelectedPlan(request.Notes);
+
+        return new PortalTenantRequestStatusDto(
+            request.Id,
+            request.TenantName,
+            request.CompanyName,
+            request.RequestedByEmail,
+            $"{request.RequestedByFirstName} {request.RequestedByLastName}".Trim(),
+            request.Status.ToString(),
+            request.RequestedAtUtc,
+            request.ProcessedAtUtc,
+            request.DecisionNote,
+            request.TenantId,
+            selectedPlan.PlanId,
+            selectedPlan.PlanName);
+    }
 
     private async Task EnsureCanSubmitRequestAsync(string email, string tenantName, CancellationToken cancellationToken)
     {
@@ -223,30 +245,85 @@ public class TenantRequestService(
 
     private async Task<int?> ResolveRequestedPlanIdAsync(TenantCreationRequest request, CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(request.Notes))
+        var selectedPlan = ExtractSelectedPlan(request.Notes);
+        if (selectedPlan.PlanId.HasValue)
         {
-            var idMatch = Regex.Match(request.Notes, @"Selected subscription plan id:\s*(\d+)", RegexOptions.IgnoreCase);
-            if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var parsedId))
-            {
-                var exists = await adminDbContext.Plans.AnyAsync(x => x.Id == parsedId, cancellationToken);
-                if (exists)
-                    return parsedId;
-            }
+            var exists = await adminDbContext.Plans.AnyAsync(x => x.Id == selectedPlan.PlanId.Value, cancellationToken);
+            if (exists)
+                return selectedPlan.PlanId.Value;
+        }
 
-            var nameMatch = Regex.Match(request.Notes, @"Selected subscription plan:\s*(.+)", RegexOptions.IgnoreCase);
-            if (nameMatch.Success)
-            {
-                var planName = nameMatch.Groups[1].Value.Trim();
-                var planId = await adminDbContext.Plans
-                    .Where(x => x.Name == planName)
-                    .Select(x => (int?)x.Id)
-                    .FirstOrDefaultAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(selectedPlan.PlanName))
+        {
+            var planId = await adminDbContext.Plans
+                .Where(x => x.Name == selectedPlan.PlanName)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
-                if (planId.HasValue)
-                    return planId.Value;
-            }
+            if (planId.HasValue)
+                return planId.Value;
         }
 
         return null;
+    }
+
+    private async Task<SelectedPlanDetails?> ResolveSelectedPlanAsync(int? selectedPlanId, CancellationToken cancellationToken)
+    {
+        if (!selectedPlanId.HasValue)
+            return null;
+
+        var selectedPlan = await adminDbContext.Plans
+            .AsNoTracking()
+            .Where(x => x.Id == selectedPlanId.Value && x.IsActive)
+            .Select(x => new SelectedPlanDetails(x.Id, x.Name))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (selectedPlan is null)
+            throw new InvalidOperationException("The selected subscription plan is no longer available.");
+
+        return selectedPlan;
+    }
+
+    private static string? BuildStoredNotes(string? notes, SelectedPlanDetails? selectedPlan)
+    {
+        var trimmedNotes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        if (selectedPlan is null)
+            return trimmedNotes;
+
+        var selectionHeader = string.Join(
+            Environment.NewLine,
+            $"Selected subscription plan id: {selectedPlan.Id}",
+            $"Selected subscription plan: {selectedPlan.Name}");
+
+        return string.IsNullOrWhiteSpace(trimmedNotes)
+            ? selectionHeader
+            : $"{selectionHeader}{Environment.NewLine}{Environment.NewLine}{trimmedNotes}";
+    }
+
+    private static SelectedPlanDetails ExtractSelectedPlan(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return SelectedPlanDetails.Empty;
+
+        int? planId = null;
+        string? planName = null;
+
+        var idMatch = Regex.Match(notes, @"^Selected subscription plan id:\s*(\d+)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        if (idMatch.Success && int.TryParse(idMatch.Groups[1].Value, out var parsedId))
+            planId = parsedId;
+
+        var nameMatch = Regex.Match(notes, @"^Selected subscription plan:\s*(.+)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        if (nameMatch.Success)
+            planName = nameMatch.Groups[1].Value.Trim();
+
+        return new SelectedPlanDetails(planId, planName);
+    }
+
+    private sealed record SelectedPlanDetails(int? Id, string? Name)
+    {
+        public static readonly SelectedPlanDetails Empty = new(null, null);
+
+        public int? PlanId => Id;
+        public string? PlanName => Name;
     }
 }

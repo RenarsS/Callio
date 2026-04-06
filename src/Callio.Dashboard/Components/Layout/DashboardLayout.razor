@@ -30,7 +30,7 @@
         <MudDrawer @bind-Open="_drawerOpen"
                    Variant="DrawerVariant.Responsive"
                    Breakpoint="Breakpoint.Lg"
-                   Overlay="true"
+                   Overlay="false"
                    Elevation="0"
                    Class="dashboard-drawer">
             <div class="drawer-brand">
@@ -47,13 +47,6 @@
                 <MudNavLink Href="/dashboard/tenants" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Domain">Tenants</MudNavLink>
                 <MudNavLink Href="/dashboard/plans" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Payments">Plans &amp; quotas</MudNavLink>
             </MudNavMenu>
-
-            <MudPaper Class="sidebar-cta" Elevation="0">
-                <MudText Typo="Typo.subtitle2">Current focus</MudText>
-                <MudText Typo="Typo.body2">
-                    Review new tenant onboarding, maintain the tenant registry, and keep pricing controls ready for the next RAG customer rollout.
-                </MudText>
-            </MudPaper>
         </MudDrawer>
 
         <MudMainContent Class="dashboard-main">

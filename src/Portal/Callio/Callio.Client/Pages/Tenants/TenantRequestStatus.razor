@@ -1,5 +1,5 @@
 @page "/tenant-request-status"
-@rendermode InteractiveWebAssembly
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inject Callio.Client.Services.TenantRequestApi TenantRequestApi
 
 <PageTitle>Request status</PageTitle>
@@ -10,7 +10,7 @@
             <div class="callio-kicker">Customer status view</div>
             <MudText Typo="Typo.h4" GutterBottom="true">Check whether your tenant request is pending, approved, or rejected.</MudText>
             <MudText Typo="Typo.body2" Class="callio-lead">
-                This page is the customer-facing handoff after submission. There is no duplex communication in this slice, so the latest decision and optional admin note are shown here.
+                This page is the customer-facing handoff after submission. You can load the latest decision by tenant ID, or use the original request ID and email combination from the submission step.
             </MudText>
         </MudPaper>
     </MudItem>
@@ -22,12 +22,17 @@
 
                 <MudGrid>
                     <MudItem xs="12" md="4">
+                        <MudNumericField @bind-Value="_lookup.TenantId" Label="Tenant ID" Variant="Variant.Outlined" Min="1" />
+                    </MudItem>
+                    <MudItem xs="12" md="4">
                         <MudNumericField @bind-Value="_lookup.RequestId" Label="Request ID" Variant="Variant.Outlined" Min="1" />
                     </MudItem>
-                    <MudItem xs="12" md="8">
+                    <MudItem xs="12" md="4">
                         <MudTextField @bind-Value="_lookup.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" />
                     </MudItem>
                 </MudGrid>
+
+                <MudText Typo="Typo.caption" Class="callio-lead mt-2">Tenant ID takes priority when it is present in the URL or lookup form.</MudText>
 
                 <MudStack Row="true" Spacing="2" Class="mt-4">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(_loading || !CanLookup)" OnClick="LookupAsync">
@@ -55,6 +60,13 @@
                         </MudChip>
                     </MudStack>
 
+                    @if (!string.IsNullOrWhiteSpace(_status.SelectedPlanName))
+                    {
+                        <MudChip T="string" Class="mt-4" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            @($"Requested plan: {_status.SelectedPlanName}")
+                        </MudChip>
+                    }
+
                     <MudDivider Class="my-4" />
 
                     <MudText Typo="Typo.body2" Class="callio-lead">@GetStatusMessage(_status)</MudText>
@@ -73,6 +85,9 @@
 </MudGrid>
 
 @code {
+    [SupplyParameterFromQuery(Name = "tenantId")]
+    public int? QueryTenantId { get; set; }
+
     [SupplyParameterFromQuery(Name = "requestId")]
     public int? QueryRequestId { get; set; }
 
@@ -81,31 +96,42 @@
 
     private readonly RequestLookupVm _lookup = new();
     private bool _loading;
-    private bool _queryInitialized;
+    private string? _appliedQueryKey;
     private string? _error;
     private Callio.Client.Services.PortalTenantRequestStatusResponse? _status;
 
-    private bool CanLookup => _lookup.RequestId > 0 && !string.IsNullOrWhiteSpace(_lookup.Email);
+    private bool CanLookup =>
+        _lookup.TenantId > 0 ||
+        (_lookup.RequestId > 0 && !string.IsNullOrWhiteSpace(_lookup.Email));
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_queryInitialized)
-            return;
+        string? queryKey = null;
 
-        if (QueryRequestId is > 0 && !string.IsNullOrWhiteSpace(QueryEmail))
+        if (QueryTenantId is > 0)
+        {
+            _lookup.TenantId = QueryTenantId.Value;
+            queryKey = $"tenant:{QueryTenantId.Value}";
+        }
+        else if (QueryRequestId is > 0 && !string.IsNullOrWhiteSpace(QueryEmail))
         {
             _lookup.RequestId = QueryRequestId.Value;
             _lookup.Email = QueryEmail;
-            _queryInitialized = true;
-            await LookupAsync();
+            queryKey = $"request:{QueryRequestId.Value}:{QueryEmail.Trim()}";
         }
+
+        if (queryKey is null || queryKey == _appliedQueryKey)
+            return;
+
+        _appliedQueryKey = queryKey;
+        await LookupAsync();
     }
 
     private async Task LookupAsync()
     {
         if (!CanLookup)
         {
-            _error = "Enter the request ID and email used when the request was created.";
+            _error = "Enter a tenant ID, or provide the request ID and email used when the request was created.";
             return;
         }
 
@@ -114,7 +140,9 @@
 
         try
         {
-            _status = await TenantRequestApi.GetRequestStatusAsync(_lookup.RequestId, _lookup.Email!);
+            _status = _lookup.TenantId > 0
+                ? await TenantRequestApi.GetRequestStatusByTenantIdAsync(_lookup.TenantId)
+                : await TenantRequestApi.GetRequestStatusAsync(_lookup.RequestId, _lookup.Email!);
         }
         catch (Exception ex)
         {
@@ -143,6 +171,7 @@
 
     private sealed class RequestLookupVm
     {
+        public int TenantId { get; set; }
         public int RequestId { get; set; }
         public string? Email { get; set; }
     }

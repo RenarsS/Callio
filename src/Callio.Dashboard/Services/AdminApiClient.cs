@@ -96,7 +96,9 @@ public record TenantRequestItem(
     string? Notes,
     string? DecisionNote,
     string? ProcessedByUserId,
-    int? TenantId);
+    int? TenantId,
+    int? SelectedPlanId,
+    string? SelectedPlanName);
 
 public record TenantItem(int Id, string Name, Guid? TenantCode, string ContactName, string ContactEmail, DateTime CreatedAt, DateTime ActivatedAt, DateTime? DeactivatedAt, string Status, string? CurrentPlanName, string? SubscriptionStatus);
 public record PlanItem(int Id, string Name, string Description, decimal BasePrice, string Currency, int BillingInterval, int AnchorDay, bool IsActive, IReadOnlyList<PlanQuotaItem> Quotas);

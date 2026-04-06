@@ -9,6 +9,7 @@ public record RegisterPortalUserAndTenantCommand(
     string LastName,
     string CompanyName,
     string TenantName,
+    int? SelectedPlanId,
     string? Notes);
 
 public record PortalTenantOnboardingResultDto(
@@ -18,7 +19,9 @@ public record PortalTenantOnboardingResultDto(
     string TenantName,
     string CompanyName,
     string Status,
-    string Message);
+    string Message,
+    int? SelectedPlanId,
+    string? SelectedPlanName);
 
 public record PortalTenantRequestStatusDto(
     int Id,
@@ -30,7 +33,9 @@ public record PortalTenantRequestStatusDto(
     DateTime RequestedAtUtc,
     DateTime? ProcessedAtUtc,
     string? DecisionNote,
-    int? TenantId);
+    int? TenantId,
+    int? SelectedPlanId,
+    string? SelectedPlanName);
 
 public record ProcessTenantRequestCommand(
     int RequestId,
@@ -49,4 +54,6 @@ public record TenantRequestListItemDto(
     string? Notes,
     string? DecisionNote,
     string? ProcessedByUserId,
-    int? TenantId);
+    int? TenantId,
+    int? SelectedPlanId,
+    string? SelectedPlanName);

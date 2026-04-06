@@ -94,8 +94,13 @@
 
                     <MudDivider Class="my-4" />
 
+                    <MudText Typo="Typo.subtitle2">Requested plan</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@(SelectedRequest.SelectedPlanName ?? "No starting plan was selected.")</MudText>
+
+                    <MudDivider Class="my-4" />
+
                     <MudText Typo="Typo.subtitle2">Request notes</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">@(string.IsNullOrWhiteSpace(SelectedRequest.Notes) ? "No request notes were provided." : SelectedRequest.Notes)</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@GetDisplayNotes(SelectedRequest.Notes)</MudText>
 
                     <MudDivider Class="my-4" />
 
@@ -183,6 +188,24 @@
         {
             Snackbar.Add(ex.Message, Severity.Error);
         }
+    }
+
+    private static string GetDisplayNotes(string? notes)
+    {
+        if (string.IsNullOrWhiteSpace(notes))
+            return "No request notes were provided.";
+
+        var visibleLines = notes
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n', StringSplitOptions.None)
+            .Where(line =>
+                !line.StartsWith("Selected subscription plan id:", StringComparison.OrdinalIgnoreCase) &&
+                !line.StartsWith("Selected subscription plan:", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
+        var visibleText = string.Join(Environment.NewLine, visibleLines).Trim();
+        return string.IsNullOrWhiteSpace(visibleText) ? "No request notes were provided." : visibleText;
     }
 
     private static Color GetStatusColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };

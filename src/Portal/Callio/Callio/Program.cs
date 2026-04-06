@@ -1,4 +1,5 @@
 using Callio.Client.Pages;
+using Callio.Client.Services;
 using Callio.Components;
 using MudBlazor.Services;
 
@@ -9,6 +10,10 @@ builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
 
 builder.Services.AddMudServices();
+builder.Services.AddHttpClient<TenantRequestApi>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5043");
+});
 
 
 var app = builder.Build();

@@ -1,4 +1,4 @@
-﻿@page "/dashboard/plans"
+@page "/dashboard/plans"
 @layout DashboardLayout
 @rendermode InteractiveServer
 @inject Callio.Admin.Services.AdminApiClient Api
@@ -6,32 +6,31 @@
 
 <PageTitle>Plans and quotas</PageTitle>
 
-<MudTabs Rounded="true" @bind-ActivePanelIndex="_activeTabIndex">
-    <MudTabPanel Text="Plans & quotas">
-        <MudGrid>
-            <MudItem xs="12" lg="4">
-                <MudPaper Class="pa-4" Elevation="0">
-                    <MudText Typo="Typo.h6">@(_editingPlanId is null ? "Create plan" : "Edit plan")</MudText>
-                    <MudTextField @bind-Value="_planForm.Name" Label="Name" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField @bind-Value="_planForm.Description" Label="Description" Variant="Variant.Outlined" Lines="3" Class="mb-3" />
-                    <MudNumericField @bind-Value="_planForm.BasePrice" Label="Base price" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField @bind-Value="_planForm.Currency" Label="Currency" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudSelect T="int" @bind-Value="_planForm.BillingInterval" Label="Billing interval" Variant="Variant.Outlined" Class="mb-3">
-                        <MudSelectItem Value="0">Monthly</MudSelectItem>
-                        <MudSelectItem Value="1">Quarterly</MudSelectItem>
-                        <MudSelectItem Value="2">Annual</MudSelectItem>
-                    </MudSelect>
-                    <MudNumericField @bind-Value="_planForm.AnchorDay" Label="Billing anchor day" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudSwitch @bind-Value="_planForm.IsActive" Color="Color.Primary">Plan is active</MudSwitch>
-                    <MudStack Row="true" Spacing="1" Class="mt-4">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="SavePlanAsync">Save</MudButton>
-                        <MudButton Variant="Variant.Text" Color="Color.Default" ButtonType="ButtonType.Button" OnClick="ResetPlanForm">Clear</MudButton>
-                    </MudStack>
-                </MudPaper>
-            </MudItem>
-            <MudItem xs="12" lg="8">
-                <MudPaper Class="pa-4 mb-4" Elevation="0">
-                    <MudText Typo="Typo.h6" Class="mb-2">Plan catalog</MudText>
+<MudStack Spacing="3">
+    <MudPaper Class="callio-card pa-4" Elevation="0">
+        <MudText Typo="Typo.h5">Commercial catalog</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            Manage plans, quotas, and usage metrics from one screen. Inputs use direct single-choice controls so plan editing does not depend on popover dropdowns.
+        </MudText>
+    </MudPaper>
+
+    <MudGrid>
+        <MudItem xs="12" lg="8">
+            <MudPaper Class="callio-card pa-4" Elevation="0">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
+                    <div>
+                        <MudText Typo="Typo.h6">Plans and quotas</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">Add, edit, delete plans, and manage quotas for each plan from the same view.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="LoadAsync">Refresh</MudButton>
+                </MudStack>
+
+                @if (_plans.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No plans are available yet.</MudAlert>
+                }
+                else
+                {
                     @foreach (var plan in _plans)
                     {
                         <MudPaper Class="pa-4 mb-3 stat-card" Elevation="0">
@@ -40,125 +39,577 @@
                                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
                                         <MudText Typo="Typo.subtitle1">@plan.Name</MudText>
                                         <MudChip T="string" Size="Size.Small" Color="@(plan.IsActive ? Color.Success : Color.Default)">@(plan.IsActive ? "Active" : "Inactive")</MudChip>
+                                        @if (_editingPlanId == plan.Id)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Editing</MudChip>
+                                        }
+                                        @if (_quotaPlanId == plan.Id)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Secondary" Variant="Variant.Outlined">
+                                                @(_editingQuotaId is null ? "Adding quota" : "Editing quota")
+                                            </MudChip>
+                                        }
                                     </MudStack>
                                     <MudText Typo="Typo.body2">@plan.Description</MudText>
-                                    <MudText Typo="Typo.caption">@plan.BasePrice @plan.Currency · @IntervalLabel(plan.BillingInterval) · anchor day @plan.AnchorDay</MudText>
+                                    <MudText Typo="Typo.caption">@plan.BasePrice @plan.Currency - @IntervalLabel(plan.BillingInterval) - anchor day @plan.AnchorDay</MudText>
                                 </div>
                                 <MudStack Row="true" Spacing="1">
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="() => EditPlan(plan)">Edit</MudButton>
-                                    <MudButton Variant="Variant.Text" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="() => DeletePlanAsync(plan.Id)">Delete</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="@(() => EditPlan(plan))">Edit</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Secondary" ButtonType="ButtonType.Button" OnClick="@(() => StartAddQuota(plan))">Add quota</MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="@(() => DeletePlanAsync(plan.Id))">Delete</MudButton>
                                 </MudStack>
                             </MudStack>
 
                             <MudDivider Class="my-3" />
                             <MudText Typo="Typo.subtitle2" Class="mb-2">Quotas</MudText>
-                            <MudTable Items="plan.Quotas" Dense="true" Hover="true">
-                                <HeaderContent><MudTh>Metric</MudTh><MudTh>Limit</MudTh><MudTh>Hard limit</MudTh><MudTh>Overage</MudTh><MudTh></MudTh></HeaderContent>
-                                <RowTemplate>
-                                    <MudTd>@context.UsageMetricDisplayName</MudTd>
-                                    <MudTd>@(context.Limit == -1 ? "Unlimited" : $"{context.Limit} {context.Unit}")</MudTd>
-                                    <MudTd>@(context.HardLimit ? "Yes" : "No")</MudTd>
-                                    <MudTd>@(context.OverageUnitPrice is null ? "—" : $"{context.OverageUnitPrice} {context.OverageCurrency}/{context.Unit}")</MudTd>
-                                    <MudTd><MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="() => DeleteQuotaAsync(plan.Id, context.Id)">Remove</MudButton></MudTd>
-                                </RowTemplate>
-                            </MudTable>
 
-                            <MudGrid Class="mt-2">
-                                <MudItem xs="12" md="4"><MudSelect T="int" @bind-Value="_quotaForm.UsageMetricId" Label="Metric" Variant="Variant.Outlined">@foreach (var metric in _metrics) { <MudSelectItem Value="@metric.Id">@metric.DisplayName</MudSelectItem> }</MudSelect></MudItem>
-                                <MudItem xs="12" md="2"><MudNumericField @bind-Value="_quotaForm.Limit" Label="Limit" Variant="Variant.Outlined" /></MudItem>
-                                <MudItem xs="12" md="2"><MudTextField @bind-Value="_quotaForm.Currency" Label="Currency" Variant="Variant.Outlined" /></MudItem>
-                                <MudItem xs="12" md="2"><MudNumericField @bind-Value="_quotaForm.OverageUnitPrice" Label="Overage" Variant="Variant.Outlined" /></MudItem>
-                                <MudItem xs="12" md="2"><MudSwitch @bind-Value="_quotaForm.HardLimit" Color="Color.Primary">Hard</MudSwitch></MudItem>
-                            </MudGrid>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Class="mt-2" ButtonType="ButtonType.Button" OnClick="() => AddQuotaAsync(plan.Id)">Add quota</MudButton>
+                            @if (plan.Quotas.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Class="callio-lead">No quotas are defined for this plan yet.</MudText>
+                            }
+                            else
+                            {
+                                <MudTable Items="plan.Quotas" Dense="true" Hover="true">
+                                    <HeaderContent>
+                                        <MudTh>Metric</MudTh>
+                                        <MudTh>Limit</MudTh>
+                                        <MudTh>Hard limit</MudTh>
+                                        <MudTh>Overage</MudTh>
+                                        <MudTh></MudTh>
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        <MudTd>@context.UsageMetricDisplayName</MudTd>
+                                        <MudTd>@(context.Limit == -1 ? "Unlimited" : $"{context.Limit} {context.Unit}")</MudTd>
+                                        <MudTd>@(context.HardLimit ? "Yes" : "No")</MudTd>
+                                        <MudTd>@(context.OverageUnitPrice is null ? "Included" : $"{context.OverageUnitPrice} {context.OverageCurrency}/{context.Unit}")</MudTd>
+                                        <MudTd>
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="@(() => StartEditQuota(plan, context))">Edit</MudButton>
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="@(() => DeleteQuotaAsync(plan.Id, context.Id))">Remove</MudButton>
+                                        </MudTd>
+                                    </RowTemplate>
+                                </MudTable>
+                            }
                         </MudPaper>
                     }
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    </MudTabPanel>
+                }
+            </MudPaper>
+        </MudItem>
 
-    <MudTabPanel Text="Usage metrics">
-        <MudGrid>
-            <MudItem xs="12" lg="4">
-                <MudPaper Class="pa-4" Elevation="0">
-                    <MudText Typo="Typo.h6">@(_editingMetricId is null ? "Create metric" : "Edit metric")</MudText>
-                    <MudTextField @bind-Value="_metricForm.Key" Label="Key" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField @bind-Value="_metricForm.DisplayName" Label="Display name" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField @bind-Value="_metricForm.Unit" Label="Unit" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudSelect T="int" @bind-Value="_metricForm.Type" Label="Measurement type" Variant="Variant.Outlined">
-                        <MudSelectItem Value="0">Cumulative</MudSelectItem>
-                        <MudSelectItem Value="1">Snapshot</MudSelectItem>
-                    </MudSelect>
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card pa-4" Elevation="0">
+                    <MudText Typo="Typo.h6">@(_editingPlanId is null ? "Create plan" : "Edit plan")</MudText>
+                    <MudTextField @bind-Value="_planForm.Name" Label="Name" Variant="Variant.Outlined" Class="mb-3" />
+                    <MudTextField @bind-Value="_planForm.Description" Label="Description" Variant="Variant.Outlined" Lines="3" Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="callio-lead">Base price</MudText>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Remove" Color="Color.Default" OnClick="@(() => ChangeBasePrice(-1m))" />
+                        <MudNumericField T="decimal" @bind-Value="_planForm.BasePrice" Variant="Variant.Outlined" Min="0" Step="0.01m" HideSpinButtons="false" FullWidth="true" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Add" Color="Color.Default" OnClick="@(() => ChangeBasePrice(1m))" />
+                    </MudStack>
+
+                    <MudTextField @bind-Value="_planForm.Currency" Label="Currency" Variant="Variant.Outlined" Class="mb-3" />
+
+                    <MudText Typo="Typo.caption" Class="callio-lead">Billing interval</MudText>
+                    <MudRadioGroup T="int" @bind-Value="_planForm.BillingInterval" Class="mb-3">
+                        <MudRadio T="int" Value="0" Dense="true">Monthly</MudRadio>
+                        <MudRadio T="int" Value="1" Dense="true">Quarterly</MudRadio>
+                        <MudRadio T="int" Value="2" Dense="true">Annual</MudRadio>
+                    </MudRadioGroup>
+
+                    <MudText Typo="Typo.caption" Class="callio-lead">Billing anchor day</MudText>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudIconButton Icon="@Icons.Material.Outlined.Remove" Color="Color.Default" OnClick="@(() => ChangeAnchorDay(-1))" />
+                        <MudNumericField T="int" @bind-Value="_planForm.AnchorDay" Variant="Variant.Outlined" Min="1" Max="31" Step="1" HideSpinButtons="false" FullWidth="true" />
+                        <MudIconButton Icon="@Icons.Material.Outlined.Add" Color="Color.Default" OnClick="@(() => ChangeAnchorDay(1))" />
+                    </MudStack>
+
+                    <MudSwitch @bind-Value="_planForm.IsActive" Color="Color.Primary">Plan is active</MudSwitch>
+
                     <MudStack Row="true" Spacing="1" Class="mt-4">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="SaveMetricAsync">Save</MudButton>
-                        <MudButton Variant="Variant.Text" ButtonType="ButtonType.Button" OnClick="ResetMetricForm">Clear</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(!CanSavePlan)" OnClick="SavePlanAsync">Save</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Default" ButtonType="ButtonType.Button" OnClick="ResetPlanForm">Clear</MudButton>
                     </MudStack>
                 </MudPaper>
-            </MudItem>
-            <MudItem xs="12" lg="8">
-                <MudPaper Class="pa-4" Elevation="0">
+
+                <MudPaper Class="callio-card pa-4" Elevation="0">
+                    @if (SelectedQuotaPlan is null)
+                    {
+                        <MudText Typo="Typo.h6">Quota editor</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">Choose "Add quota" or "Edit" on a plan row to load quota details here.</MudText>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6">@(_editingQuotaId is null ? "Add quota" : "Edit quota")</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead mb-4">@SelectedQuotaPlan.Name</MudText>
+
+                        <MudText Typo="Typo.caption" Class="callio-lead">Metric</MudText>
+                        <MudRadioGroup T="int" @bind-Value="_quotaForm.UsageMetricId" Disabled="@(_editingQuotaId is not null)" Class="mb-3">
+                            @foreach (var metric in QuotaMetricOptions)
+                            {
+                                <MudRadio T="int" Value="@metric.Id" Dense="true">@metric.DisplayName</MudRadio>
+                            }
+                        </MudRadioGroup>
+
+                        <MudText Typo="Typo.caption" Class="callio-lead">Limit</MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Remove" Color="Color.Default" OnClick="@(() => ChangeQuotaLimit(-1m))" />
+                            <MudNumericField T="decimal" @bind-Value="_quotaForm.Limit" Variant="Variant.Outlined" Min="-1" Step="1" HideSpinButtons="false" FullWidth="true" />
+                            <MudIconButton Icon="@Icons.Material.Outlined.Add" Color="Color.Default" OnClick="@(() => ChangeQuotaLimit(1m))" />
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="callio-lead">Use -1 for unlimited.</MudText>
+
+                        <MudSwitch @bind-Value="_quotaForm.HardLimit" Color="Color.Primary" Class="my-3">Hard limit</MudSwitch>
+
+                        <MudText Typo="Typo.caption" Class="callio-lead">Overage unit price</MudText>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="mb-3">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Remove" Color="Color.Default" OnClick="@(() => ChangeOverage(-0.01m))" />
+                            <MudNumericField T="decimal?" @bind-Value="_quotaForm.OverageUnitPrice" Variant="Variant.Outlined" Min="0" Step="0.01m" HideSpinButtons="false" FullWidth="true" />
+                            <MudIconButton Icon="@Icons.Material.Outlined.Add" Color="Color.Default" OnClick="@(() => ChangeOverage(0.01m))" />
+                        </MudStack>
+
+                        <MudTextField @bind-Value="_quotaForm.Currency" Label="Overage currency" Variant="Variant.Outlined" />
+
+                        <MudStack Row="true" Spacing="1" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(!CanSaveQuota)" OnClick="SaveQuotaAsync">
+                                @(_editingQuotaId is null ? "Add quota" : "Save quota")
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Default" ButtonType="ButtonType.Button" OnClick="ResetQuotaForm">Clear</MudButton>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+
+    <MudGrid>
+        <MudItem xs="12" lg="8">
+            <MudPaper Class="callio-card pa-4" Elevation="0">
+                <MudText Typo="Typo.h6">Usage metrics</MudText>
+                <MudText Typo="Typo.body2" Class="callio-lead mb-4">Add, edit, and delete the metrics used by plan quotas.</MudText>
+
+                @if (_metrics.Count == 0)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No usage metrics are available yet.</MudAlert>
+                }
+                else
+                {
                     <MudTable Items="_metrics" Dense="true" Hover="true">
-                        <HeaderContent><MudTh>Key</MudTh><MudTh>Display</MudTh><MudTh>Unit</MudTh><MudTh>Type</MudTh><MudTh></MudTh></HeaderContent>
+                        <HeaderContent>
+                            <MudTh>Key</MudTh>
+                            <MudTh>Display</MudTh>
+                            <MudTh>Unit</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh></MudTh>
+                        </HeaderContent>
                         <RowTemplate>
                             <MudTd>@context.Key</MudTd>
-                            <MudTd>@context.DisplayName</MudTd>
+                            <MudTd>
+                                <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.body2">@context.DisplayName</MudText>
+                                    @if (_editingMetricId == context.Id)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">Editing</MudChip>
+                                    }
+                                </MudStack>
+                            </MudTd>
                             <MudTd>@context.Unit</MudTd>
                             <MudTd>@MetricTypeLabel(context.Type)</MudTd>
-                            <MudTd><MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="() => EditMetric(context)">Edit</MudButton><MudButton Variant="Variant.Text" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="() => DeleteMetricAsync(context.Id)">Delete</MudButton></MudTd>
+                            <MudTd>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="@(() => EditMetric(context))">Edit</MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="@(() => DeleteMetricAsync(context.Id))">Delete</MudButton>
+                            </MudTd>
                         </RowTemplate>
                     </MudTable>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    </MudTabPanel>
-</MudTabs>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="callio-card pa-4" Elevation="0">
+                <MudText Typo="Typo.h6">@(_editingMetricId is null ? "Create metric" : "Edit metric")</MudText>
+                <MudTextField @bind-Value="_metricForm.Key" Label="Key" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_metricForm.DisplayName" Label="Display name" Variant="Variant.Outlined" Class="mb-3" />
+                <MudTextField @bind-Value="_metricForm.Unit" Label="Unit" Variant="Variant.Outlined" Class="mb-3" />
+
+                <MudText Typo="Typo.caption" Class="callio-lead">Measurement type</MudText>
+                <MudRadioGroup T="int" @bind-Value="_metricForm.Type">
+                    <MudRadio T="int" Value="0" Dense="true">Cumulative</MudRadio>
+                    <MudRadio T="int" Value="1" Dense="true">Snapshot</MudRadio>
+                </MudRadioGroup>
+
+                <MudStack Row="true" Spacing="1" Class="mt-4">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(!CanSaveMetric)" OnClick="SaveMetricAsync">Save</MudButton>
+                    <MudButton Variant="Variant.Text" ButtonType="ButtonType.Button" OnClick="ResetMetricForm">Clear</MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
 
 @code {
-    private int _activeTabIndex;
     private IReadOnlyList<Callio.Admin.Services.PlanItem> _plans = [];
     private IReadOnlyList<Callio.Admin.Services.UsageMetricItem> _metrics = [];
     private int? _editingPlanId;
     private int? _editingMetricId;
+    private int? _quotaPlanId;
+    private int? _editingQuotaId;
     private PlanForm _planForm = new();
     private MetricForm _metricForm = new();
-    private QuotaForm _quotaForm = new() { Currency = "EUR" };
+    private QuotaForm _quotaForm = new();
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    private Callio.Admin.Services.PlanItem? SelectedQuotaPlan =>
+        _quotaPlanId is null ? null : _plans.FirstOrDefault(x => x.Id == _quotaPlanId.Value);
+
+    private IReadOnlyList<Callio.Admin.Services.UsageMetricItem> QuotaMetricOptions =>
+        SelectedQuotaPlan is null
+            ? _metrics
+            : _metrics
+                .Where(metric =>
+                    metric.Id == _quotaForm.UsageMetricId ||
+                    SelectedQuotaPlan.Quotas.All(quota => quota.UsageMetricId != metric.Id))
+                .ToList();
+
+    private bool CanSavePlan =>
+        !string.IsNullOrWhiteSpace(_planForm.Name) &&
+        !string.IsNullOrWhiteSpace(_planForm.Description) &&
+        !string.IsNullOrWhiteSpace(_planForm.Currency) &&
+        _planForm.BasePrice >= 0 &&
+        _planForm.AnchorDay is >= 1 and <= 31;
+
+    private bool CanSaveMetric =>
+        !string.IsNullOrWhiteSpace(_metricForm.Key) &&
+        !string.IsNullOrWhiteSpace(_metricForm.DisplayName) &&
+        !string.IsNullOrWhiteSpace(_metricForm.Unit);
+
+    private bool CanSaveQuota =>
+        _quotaPlanId.HasValue &&
+        _quotaForm.UsageMetricId > 0 &&
+        !string.IsNullOrWhiteSpace(_quotaForm.Currency) &&
+        _quotaForm.Limit >= -1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ResetPlanForm();
+        ResetMetricForm();
+        ResetQuotaForm();
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
-        _plans = await Api.GetPlansAsync();
-        _metrics = await Api.GetUsageMetricsAsync();
+        try
+        {
+            _plans = await Api.GetPlansAsync();
+            _metrics = await Api.GetUsageMetricsAsync();
+
+            if (_quotaPlanId.HasValue && _plans.All(x => x.Id != _quotaPlanId.Value))
+                ResetQuotaForm();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private async Task SavePlanAsync()
     {
+        if (!CanSavePlan)
+            return;
+
         try
         {
-            var payload = new Callio.Admin.Services.PlanUpsertRequest(_planForm.Name, _planForm.Description, _planForm.BasePrice, _planForm.Currency, _planForm.BillingInterval, _planForm.AnchorDay, _planForm.IsActive);
-            if (_editingPlanId is null) await Api.CreatePlanAsync(payload); else await Api.UpdatePlanAsync(_editingPlanId.Value, payload);
+            var payload = new Callio.Admin.Services.PlanUpsertRequest(
+                _planForm.Name,
+                _planForm.Description,
+                _planForm.BasePrice,
+                _planForm.Currency,
+                _planForm.BillingInterval,
+                _planForm.AnchorDay,
+                _planForm.IsActive);
+
+            if (_editingPlanId is null)
+                await Api.CreatePlanAsync(payload);
+            else
+                await Api.UpdatePlanAsync(_editingPlanId.Value, payload);
+
             Snackbar.Add("Plan saved.", Severity.Success);
             ResetPlanForm();
             await LoadAsync();
         }
-        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
-    private async Task DeletePlanAsync(int id) { try { await Api.DeletePlanAsync(id); Snackbar.Add("Plan deleted.", Severity.Success); await LoadAsync(); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
-    private async Task SaveMetricAsync() { try { var payload = new Callio.Admin.Services.UsageMetricUpsertRequest(_metricForm.Key, _metricForm.DisplayName, _metricForm.Unit, _metricForm.Type); if (_editingMetricId is null) await Api.CreateUsageMetricAsync(payload); else await Api.UpdateUsageMetricAsync(_editingMetricId.Value, payload); Snackbar.Add("Metric saved.", Severity.Success); ResetMetricForm(); await LoadAsync(); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
-    private async Task DeleteMetricAsync(int id) { try { await Api.DeleteUsageMetricAsync(id); Snackbar.Add("Metric deleted.", Severity.Success); await LoadAsync(); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
-    private async Task AddQuotaAsync(int planId) { try { await Api.CreateQuotaAsync(planId, new(_quotaForm.UsageMetricId, _quotaForm.Limit, _quotaForm.HardLimit, _quotaForm.OverageUnitPrice, _quotaForm.Currency)); Snackbar.Add("Quota added.", Severity.Success); _quotaForm = new() { Currency = "EUR" }; await LoadAsync(); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
-    private async Task DeleteQuotaAsync(int planId, int quotaId) { try { await Api.DeleteQuotaAsync(planId, quotaId); Snackbar.Add("Quota removed.", Severity.Success); await LoadAsync(); } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); } }
+    private async Task DeletePlanAsync(int id)
+    {
+        try
+        {
+            await Api.DeletePlanAsync(id);
+            Snackbar.Add("Plan deleted.", Severity.Success);
 
-    private void EditPlan(Callio.Admin.Services.PlanItem plan) { _editingPlanId = plan.Id; _planForm = new() { Name = plan.Name, Description = plan.Description, BasePrice = plan.BasePrice, Currency = plan.Currency, BillingInterval = plan.BillingInterval, AnchorDay = plan.AnchorDay, IsActive = plan.IsActive }; }
-    private void EditMetric(Callio.Admin.Services.UsageMetricItem metric) { _editingMetricId = metric.Id; _metricForm = new() { Key = metric.Key, DisplayName = metric.DisplayName, Unit = metric.Unit, Type = metric.Type }; }
-    private void ResetPlanForm() { _editingPlanId = null; _planForm = new() { Currency = "EUR", AnchorDay = 1, BillingInterval = 0, IsActive = true }; }
-    private void ResetMetricForm() { _editingMetricId = null; _metricForm = new(); }
+            if (_quotaPlanId == id)
+                ResetQuotaForm();
+
+            if (_editingPlanId == id)
+                ResetPlanForm();
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveMetricAsync()
+    {
+        if (!CanSaveMetric)
+            return;
+
+        try
+        {
+            var payload = new Callio.Admin.Services.UsageMetricUpsertRequest(
+                _metricForm.Key,
+                _metricForm.DisplayName,
+                _metricForm.Unit,
+                _metricForm.Type);
+
+            if (_editingMetricId is null)
+                await Api.CreateUsageMetricAsync(payload);
+            else
+                await Api.UpdateUsageMetricAsync(_editingMetricId.Value, payload);
+
+            Snackbar.Add("Metric saved.", Severity.Success);
+            ResetMetricForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteMetricAsync(int id)
+    {
+        try
+        {
+            await Api.DeleteUsageMetricAsync(id);
+            Snackbar.Add("Metric deleted.", Severity.Success);
+
+            if (_quotaForm.UsageMetricId == id)
+                ResetQuotaForm();
+
+            if (_editingMetricId == id)
+                ResetMetricForm();
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void StartAddQuota(Callio.Admin.Services.PlanItem plan)
+    {
+        var nextMetric = _metrics.FirstOrDefault(metric => plan.Quotas.All(quota => quota.UsageMetricId != metric.Id));
+        if (nextMetric is null)
+        {
+            Snackbar.Add("All usage metrics already have quotas for this plan.", Severity.Info);
+            return;
+        }
+
+        _quotaPlanId = plan.Id;
+        _editingQuotaId = null;
+        _quotaForm = new QuotaForm
+        {
+            UsageMetricId = nextMetric.Id,
+            Limit = 0,
+            Currency = plan.Currency
+        };
+    }
+
+    private void StartEditQuota(Callio.Admin.Services.PlanItem plan, Callio.Admin.Services.PlanQuotaItem quota)
+    {
+        _quotaPlanId = plan.Id;
+        _editingQuotaId = quota.Id;
+        _quotaForm = new QuotaForm
+        {
+            UsageMetricId = quota.UsageMetricId,
+            Limit = quota.Limit,
+            HardLimit = quota.HardLimit,
+            OverageUnitPrice = quota.OverageUnitPrice,
+            Currency = quota.OverageCurrency ?? plan.Currency
+        };
+    }
+
+    private async Task SaveQuotaAsync()
+    {
+        if (!CanSaveQuota || !_quotaPlanId.HasValue)
+            return;
+
+        try
+        {
+            if (_editingQuotaId is null)
+            {
+                await Api.CreateQuotaAsync(
+                    _quotaPlanId.Value,
+                    new Callio.Admin.Services.QuotaUpsertRequest(
+                        _quotaForm.UsageMetricId,
+                        _quotaForm.Limit,
+                        _quotaForm.HardLimit,
+                        _quotaForm.OverageUnitPrice,
+                        _quotaForm.Currency));
+            }
+            else
+            {
+                await Api.UpdateQuotaAsync(
+                    _quotaPlanId.Value,
+                    _editingQuotaId.Value,
+                    new Callio.Admin.Services.QuotaUpdateRequest(
+                        _quotaForm.Limit,
+                        _quotaForm.HardLimit,
+                        _quotaForm.OverageUnitPrice,
+                        _quotaForm.Currency));
+            }
+
+            Snackbar.Add(_editingQuotaId is null ? "Quota added." : "Quota saved.", Severity.Success);
+            ResetQuotaForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteQuotaAsync(int planId, int quotaId)
+    {
+        try
+        {
+            await Api.DeleteQuotaAsync(planId, quotaId);
+            Snackbar.Add("Quota removed.", Severity.Success);
+
+            if (_quotaPlanId == planId && _editingQuotaId == quotaId)
+                ResetQuotaForm();
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void EditPlan(Callio.Admin.Services.PlanItem plan)
+    {
+        _editingPlanId = plan.Id;
+        _planForm = new PlanForm
+        {
+            Name = plan.Name,
+            Description = plan.Description,
+            BasePrice = plan.BasePrice,
+            Currency = plan.Currency,
+            BillingInterval = plan.BillingInterval,
+            AnchorDay = plan.AnchorDay,
+            IsActive = plan.IsActive
+        };
+    }
+
+    private void EditMetric(Callio.Admin.Services.UsageMetricItem metric)
+    {
+        _editingMetricId = metric.Id;
+        _metricForm = new MetricForm
+        {
+            Key = metric.Key,
+            DisplayName = metric.DisplayName,
+            Unit = metric.Unit,
+            Type = metric.Type
+        };
+    }
+
+    private void ChangeBasePrice(decimal delta)
+    {
+        _planForm.BasePrice = decimal.Max(0, _planForm.BasePrice + delta);
+    }
+
+    private void ChangeAnchorDay(int delta)
+    {
+        _planForm.AnchorDay = Math.Clamp(_planForm.AnchorDay + delta, 1, 31);
+    }
+
+    private void ChangeQuotaLimit(decimal delta)
+    {
+        _quotaForm.Limit = Math.Max(-1, _quotaForm.Limit + delta);
+    }
+
+    private void ChangeOverage(decimal delta)
+    {
+        var current = _quotaForm.OverageUnitPrice ?? 0m;
+        var next = Math.Max(0, current + delta);
+        _quotaForm.OverageUnitPrice = next == 0m ? 0m : next;
+    }
+
+    private void ResetPlanForm()
+    {
+        _editingPlanId = null;
+        _planForm = new PlanForm
+        {
+            Currency = "EUR",
+            AnchorDay = 1,
+            BillingInterval = 0,
+            IsActive = true
+        };
+    }
+
+    private void ResetMetricForm()
+    {
+        _editingMetricId = null;
+        _metricForm = new MetricForm();
+    }
+
+    private void ResetQuotaForm()
+    {
+        _quotaPlanId = null;
+        _editingQuotaId = null;
+        _quotaForm = new QuotaForm
+        {
+            Currency = "EUR"
+        };
+    }
+
     private static string IntervalLabel(int value) => value switch { 1 => "Quarterly", 2 => "Annual", _ => "Monthly" };
     private static string MetricTypeLabel(int value) => value == 1 ? "Snapshot" : "Cumulative";
 
-    private sealed class PlanForm { public string Name { get; set; } = string.Empty; public string Description { get; set; } = string.Empty; public decimal BasePrice { get; set; } public string Currency { get; set; } = "EUR"; public int BillingInterval { get; set; } public int AnchorDay { get; set; } = 1; public bool IsActive { get; set; } = true; }
-    private sealed class MetricForm { public string Key { get; set; } = string.Empty; public string DisplayName { get; set; } = string.Empty; public string Unit { get; set; } = string.Empty; public int Type { get; set; } }
-    private sealed class QuotaForm { public int UsageMetricId { get; set; } public decimal Limit { get; set; } public bool HardLimit { get; set; } public decimal? OverageUnitPrice { get; set; } public string? Currency { get; set; } }
+    private sealed class PlanForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal BasePrice { get; set; }
+        public string Currency { get; set; } = "EUR";
+        public int BillingInterval { get; set; }
+        public int AnchorDay { get; set; } = 1;
+        public bool IsActive { get; set; } = true;
+    }
+
+    private sealed class MetricForm
+    {
+        public string Key { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Unit { get; set; } = string.Empty;
+        public int Type { get; set; }
+    }
+
+    private sealed class QuotaForm
+    {
+        public int UsageMetricId { get; set; }
+        public decimal Limit { get; set; }
+        public bool HardLimit { get; set; }
+        public decimal? OverageUnitPrice { get; set; }
+        public string? Currency { get; set; }
+    }
 }
