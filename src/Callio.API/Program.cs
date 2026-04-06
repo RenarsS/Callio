@@ -3,7 +3,11 @@ using Callio.Admin.Infrastructure;
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Infrastructure;
 using Callio.Identity.Infrastructure.Consumers;
+using Callio.Provisioning.Infrastructure;
+using Callio.Provisioning.Infrastructure.Consumers;
+using Callio.Provisioning.Infrastructure.Persistence;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,6 +18,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.SetKebabCaseEndpointNameFormatter();
     x.AddConsumer<TenantApprovedConsumer>();
+    x.AddConsumer<TenantApprovedProvisioningConsumer>();
 
     var transport = builder.Configuration["MassTransit:Transport"];
     if (string.Equals(transport, "RabbitMq", StringComparison.OrdinalIgnoreCase))
@@ -61,6 +66,7 @@ builder.Services.AddMassTransit(x =>
 
 builder.Services.AddAdminModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
+builder.Services.AddProvisioningModule(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {
@@ -78,6 +84,9 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+    var provisioningDb = scope.ServiceProvider.GetRequiredService<ProvisioningDbContext>();
+
+    await provisioningDb.Database.MigrateAsync();
     await AdminDataSeeder.SeedAsync(db);
 }
 

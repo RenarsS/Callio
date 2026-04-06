@@ -11,6 +11,12 @@ public class AdminApiClient(HttpClient httpClient)
     public async Task<IReadOnlyList<TenantItem>> GetTenantsAsync(CancellationToken ct = default)
         => await httpClient.GetFromJsonAsync<List<TenantItem>>("/api/dashboard/tenants", ct) ?? [];
 
+    public async Task<IReadOnlyList<TenantInfrastructureStatusItem>> GetTenantInfrastructureAsync(CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<List<TenantInfrastructureStatusItem>>("/api/internal/tenant-infrastructure", ct) ?? [];
+
+    public Task<TenantInfrastructureStatusItem?> GetTenantInfrastructureByTenantIdAsync(int tenantId, CancellationToken ct = default)
+        => httpClient.GetFromJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}", ct);
+
     public async Task<IReadOnlyList<PlanItem>> GetPlansAsync(CancellationToken ct = default)
         => await httpClient.GetFromJsonAsync<List<PlanItem>>("/api/dashboard/plans", ct) ?? [];
 
@@ -22,6 +28,12 @@ public class AdminApiClient(HttpClient httpClient)
 
     public Task RejectRequestAsync(int requestId, string note, CancellationToken ct = default)
         => PostAsync($"/api/dashboard/tenant-requests/{requestId}/reject", new ProcessTenantRequestRequest("dashboard-admin", note), ct);
+
+    public Task<TenantInfrastructureStatusItem> RetryTenantInfrastructureAsync(int tenantId, CancellationToken ct = default)
+        => PostForJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}/retry", ct);
+
+    public Task<TenantInfrastructureStatusItem> ReprovisionTenantInfrastructureAsync(int tenantId, CancellationToken ct = default)
+        => PostForJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}/reprovision", ct);
 
     public Task CreatePlanAsync(PlanUpsertRequest request, CancellationToken ct = default) => PostAsync("/api/dashboard/plans", request, ct);
     public Task UpdatePlanAsync(int id, PlanUpsertRequest request, CancellationToken ct = default) => PutAsync($"/api/dashboard/plans/{id}", request, ct);
@@ -51,6 +63,13 @@ public class AdminApiClient(HttpClient httpClient)
     {
         var response = await httpClient.DeleteAsync(uri, ct);
         await EnsureSuccessAsync(response, ct);
+    }
+
+    private async Task<T> PostForJsonAsync<T>(string uri, CancellationToken ct)
+    {
+        var response = await httpClient.PostAsync(uri, content: null, ct);
+        await EnsureSuccessAsync(response, ct);
+        return (await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct))!;
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)
@@ -101,6 +120,44 @@ public record TenantRequestItem(
     string? SelectedPlanName);
 
 public record TenantItem(int Id, string Name, Guid? TenantCode, string ContactName, string ContactEmail, DateTime CreatedAt, DateTime ActivatedAt, DateTime? DeactivatedAt, string Status, string? CurrentPlanName, string? SubscriptionStatus);
+public record TenantInfrastructureStatusItem(
+    int TenantId,
+    int TenantRequestId,
+    string RequestedByUserId,
+    string Status,
+    int AttemptCount,
+    string DatabaseSchema,
+    string VectorStoreNamespace,
+    string? FailedStep,
+    string? LastError,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc,
+    DateTime? LastStartedAtUtc,
+    DateTime? LastCompletedAtUtc,
+    TenantKnowledgeBaseSettingsItem? Settings,
+    IReadOnlyList<TenantProvisioningStepItem> Steps);
+
+public record TenantProvisioningStepItem(
+    string Name,
+    int Order,
+    string Status,
+    int AttemptCount,
+    string? LastError,
+    DateTime? LastStartedAtUtc,
+    DateTime? LastCompletedAtUtc);
+
+public record TenantKnowledgeBaseSettingsItem(
+    string DatabaseSchema,
+    string VectorStoreNamespace,
+    string EmbeddingProvider,
+    string EmbeddingModel,
+    int ChunkSize,
+    int ChunkOverlap,
+    int RetrievalTopK,
+    bool IngestionEnabled,
+    bool RetrievalEnabled,
+    DateTime UpdatedAtUtc);
+
 public record PlanItem(int Id, string Name, string Description, decimal BasePrice, string Currency, int BillingInterval, int AnchorDay, bool IsActive, IReadOnlyList<PlanQuotaItem> Quotas);
 public record PlanQuotaItem(int Id, int UsageMetricId, string UsageMetricKey, string UsageMetricDisplayName, string Unit, decimal Limit, bool HardLimit, decimal? OverageUnitPrice, string? OverageCurrency);
 public record UsageMetricItem(int Id, string Key, string DisplayName, string Unit, int Type);

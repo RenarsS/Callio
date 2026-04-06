@@ -1,0 +1,356 @@
+@page "/dashboard/infrastructure"
+@layout DashboardLayout
+@rendermode InteractiveServer
+@inject Callio.Admin.Services.AdminApiClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Infrastructure</PageTitle>
+
+<MudStack Spacing="3">
+    <div class="callio-stat-row four">
+        <div class="callio-stat">
+            <div class="callio-stat-label">Tracked tenants</div>
+            <div class="callio-stat-value">@Rows.Count</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Provisioned</div>
+            <div class="callio-stat-value">@Rows.Count(x => x.Infrastructure?.Status == "Succeeded")</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">In progress</div>
+            <div class="callio-stat-value">@Rows.Count(x => x.Infrastructure?.Status == "InProgress")</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Needs attention</div>
+            <div class="callio-stat-value">@Rows.Count(x => x.Infrastructure is null || x.Infrastructure.Status == "Failed")</div>
+        </div>
+    </div>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="7">
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <div>
+                        <MudText Typo="Typo.h5">Infrastructure operations</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">Track tenant provisioning, spot failures, and rerun infrastructure setup when a tenant needs another pass.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="LoadAsync">Refresh</MudButton>
+                </MudStack>
+
+                <MudTextField @bind-Value="_search"
+                              Placeholder="Search by tenant, contact, email, schema, or namespace"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Margin="Margin.Dense"
+                              Class="mb-4" />
+
+                <MudTable Items="FilteredRows" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Tenant</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Storage</MudTh>
+                        <MudTh>Updated</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudText Typo="Typo.subtitle2">@context.Tenant.Name</MudText>
+                            <MudText Typo="Typo.caption">@context.Tenant.ContactEmail</MudText>
+                        </MudTd>
+                        <MudTd>
+                            <MudChip T="string" Size="Size.Small" Color="@GetInfrastructureColor(context.Infrastructure)">
+                                @GetInfrastructureLabel(context.Infrastructure)
+                            </MudChip>
+                            @if (!string.IsNullOrWhiteSpace(context.Infrastructure?.FailedStep))
+                            {
+                                <MudText Typo="Typo.caption" Class="d-block mt-1">@context.Infrastructure.FailedStep</MudText>
+                            }
+                        </MudTd>
+                        <MudTd>
+                            <MudText Typo="Typo.body2">@(context.Infrastructure?.DatabaseSchema ?? "Not created")</MudText>
+                            <MudText Typo="Typo.caption">@(context.Infrastructure?.VectorStoreNamespace ?? "No namespace")</MudText>
+                        </MudTd>
+                        <MudTd>@GetLastUpdatedLabel(context.Infrastructure)</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="() => SelectTenant(context.Tenant.Id)">
+                                Inspect
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="5">
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                @if (SelectedRow is null)
+                {
+                    <MudText Typo="Typo.h6">Select a tenant</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">Choose a tenant from the operations list to inspect the current provisioning state, resource names, failure details, and retry controls.</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.h5">@SelectedRow.Tenant.Name</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@SelectedRow.Tenant.ContactName - @SelectedRow.Tenant.ContactEmail</MudText>
+
+                    <MudStack Row="true" Spacing="1" Class="mt-4">
+                        <MudChip T="string" Size="Size.Small" Color="@GetInfrastructureColor(SelectedRow.Infrastructure)">
+                            @GetInfrastructureLabel(SelectedRow.Infrastructure)
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                            Tenant #@SelectedRow.Tenant.Id
+                        </MudChip>
+                    </MudStack>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Infrastructure resources</MudText>
+                    <MudText Typo="Typo.body2">Schema: @(SelectedRow.Infrastructure?.DatabaseSchema ?? "Not provisioned yet")</MudText>
+                    <MudText Typo="Typo.body2">Vector namespace: @(SelectedRow.Infrastructure?.VectorStoreNamespace ?? "Not provisioned yet")</MudText>
+                    <MudText Typo="Typo.caption">Attempts: @(SelectedRow.Infrastructure?.AttemptCount ?? 0)</MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(SelectedRow.Infrastructure?.LastError))
+                    {
+                        <MudPaper Class="callio-card mt-4 pa-4" Elevation="0">
+                            <MudText Typo="Typo.subtitle2">Latest failure</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead">@SelectedRow.Infrastructure.LastError</MudText>
+                        </MudPaper>
+                    }
+
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        @if (SelectedRow.Infrastructure?.Status == "Failed")
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Warning"
+                                       Disabled="_isProcessing"
+                                       ButtonType="ButtonType.Button"
+                                       OnClick="RetrySelectedAsync">
+                                Retry failed step
+                            </MudButton>
+                        }
+
+                        <MudButton Variant="@(SelectedRow.Infrastructure is null ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Primary"
+                                   Disabled="@IsReprovisionDisabled"
+                                   ButtonType="ButtonType.Button"
+                                   OnClick="ReprovisionSelectedAsync">
+                            @(SelectedRow.Infrastructure is null ? "Provision now" : "Run full reprovision")
+                        </MudButton>
+                    </MudStack>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Provisioning steps</MudText>
+                    @if (SelectedRow.Infrastructure is null)
+                    {
+                        <MudText Typo="Typo.body2" Class="callio-lead">This tenant does not have a provisioning record yet. Use the action above to initialize infrastructure and start tracking lifecycle state.</MudText>
+                    }
+                    else
+                    {
+                        <MudTable Items="SelectedRow.Infrastructure.Steps" Dense="true" Hover="true" Class="mt-3">
+                            <HeaderContent>
+                                <MudTh>Step</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Attempts</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>
+                                    <MudText Typo="Typo.body2">@GetStepLabel(context.Name)</MudText>
+                                    @if (!string.IsNullOrWhiteSpace(context.LastError))
+                                    {
+                                        <MudText Typo="Typo.caption">@context.LastError</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="@GetStepColor(context.Status)">@context.Status</MudChip>
+                                </MudTd>
+                                <MudTd>@context.AttemptCount</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+
+                    @if (SelectedRow.Infrastructure?.Settings is not null)
+                    {
+                        <MudDivider Class="my-4" />
+
+                        <MudText Typo="Typo.subtitle2">Knowledge defaults</MudText>
+                        <MudText Typo="Typo.body2">Embedding: @SelectedRow.Infrastructure.Settings.EmbeddingProvider / @SelectedRow.Infrastructure.Settings.EmbeddingModel</MudText>
+                        <MudText Typo="Typo.body2">Chunking: @SelectedRow.Infrastructure.Settings.ChunkSize tokens with @SelectedRow.Infrastructure.Settings.ChunkOverlap overlap</MudText>
+                        <MudText Typo="Typo.body2">Retrieval top K: @SelectedRow.Infrastructure.Settings.RetrievalTopK</MudText>
+                        <MudText Typo="Typo.caption">
+                            Ingestion @(SelectedRow.Infrastructure.Settings.IngestionEnabled ? "enabled" : "disabled"), retrieval @(SelectedRow.Infrastructure.Settings.RetrievalEnabled ? "enabled" : "disabled")
+                        </MudText>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudStack>
+
+@code {
+    [SupplyParameterFromQuery(Name = "tenantId")]
+    public int? TenantId { get; set; }
+
+    private IReadOnlyList<Callio.Admin.Services.TenantItem> _tenants = [];
+    private IReadOnlyList<Callio.Admin.Services.TenantInfrastructureStatusItem> _infrastructure = [];
+    private string _search = string.Empty;
+    private int? _selectedTenantId;
+    private bool _isProcessing;
+
+    private IReadOnlyList<InfrastructureRow> Rows =>
+        _tenants
+            .Select(tenant => new InfrastructureRow(
+                tenant,
+                _infrastructure.FirstOrDefault(item => item.TenantId == tenant.Id)))
+            .OrderByDescending(row => GetPriority(row.Infrastructure))
+            .ThenBy(row => row.Tenant.Name)
+            .ToList();
+
+    private IEnumerable<InfrastructureRow> FilteredRows =>
+        Rows.Where(row =>
+            string.IsNullOrWhiteSpace(_search)
+            || row.Tenant.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || row.Tenant.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || row.Tenant.ContactEmail.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || (row.Infrastructure?.DatabaseSchema?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (row.Infrastructure?.VectorStoreNamespace?.Contains(_search, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    private InfrastructureRow? SelectedRow =>
+        _selectedTenantId is null ? null : Rows.FirstOrDefault(x => x.Tenant.Id == _selectedTenantId.Value);
+
+    private bool IsReprovisionDisabled =>
+        _isProcessing || SelectedRow?.Infrastructure?.Status == "InProgress";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (TenantId.HasValue && TenantId != _selectedTenantId)
+            _selectedTenantId = TenantId;
+
+        await Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        _tenants = await Api.GetTenantsAsync();
+        _infrastructure = await Api.GetTenantInfrastructureAsync();
+
+        if (_selectedTenantId.HasValue && _tenants.All(x => x.Id != _selectedTenantId.Value))
+            _selectedTenantId = null;
+
+        if (_selectedTenantId is null)
+        {
+            var preferred = Rows.FirstOrDefault(x => x.Infrastructure?.Status == "Failed")
+                            ?? Rows.FirstOrDefault(x => x.Infrastructure is null)
+                            ?? Rows.FirstOrDefault();
+
+            if (preferred is not null)
+                _selectedTenantId = preferred.Tenant.Id;
+        }
+    }
+
+    private void SelectTenant(int tenantId)
+    {
+        _selectedTenantId = tenantId;
+    }
+
+    private async Task RetrySelectedAsync()
+    {
+        if (SelectedRow?.Infrastructure is null)
+            return;
+
+        try
+        {
+            _isProcessing = true;
+            await Api.RetryTenantInfrastructureAsync(SelectedRow.Tenant.Id);
+            Snackbar.Add("Tenant infrastructure retry started.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task ReprovisionSelectedAsync()
+    {
+        if (SelectedRow is null)
+            return;
+
+        try
+        {
+            _isProcessing = true;
+            await Api.ReprovisionTenantInfrastructureAsync(SelectedRow.Tenant.Id);
+            Snackbar.Add("Tenant reprovisioning started.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private static string GetInfrastructureLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.Status switch
+        {
+            "Succeeded" => "Healthy",
+            "InProgress" => "In progress",
+            "Failed" => "Failed",
+            "Pending" => "Pending",
+            _ => "Not provisioned"
+        };
+
+    private static Color GetInfrastructureColor(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.Status switch
+        {
+            "Succeeded" => Color.Success,
+            "InProgress" => Color.Info,
+            "Failed" => Color.Error,
+            "Pending" => Color.Warning,
+            _ => Color.Default
+        };
+
+    private static string GetLastUpdatedLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not tracked";
+
+    private static int GetPriority(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.Status switch
+        {
+            "Failed" => 4,
+            null => 3,
+            "InProgress" => 2,
+            "Pending" => 1,
+            _ => 0
+        };
+
+    private static string GetStepLabel(string stepName) => stepName switch
+    {
+        "database-schema" => "Database schema",
+        "vector-store" => "Vector namespace",
+        "default-configuration" => "Knowledge defaults",
+        _ => stepName
+    };
+
+    private static Color GetStepColor(string status) => status switch
+    {
+        "Succeeded" => Color.Success,
+        "InProgress" => Color.Info,
+        "Failed" => Color.Error,
+        _ => Color.Warning
+    };
+
+    private sealed record InfrastructureRow(
+        Callio.Admin.Services.TenantItem Tenant,
+        Callio.Admin.Services.TenantInfrastructureStatusItem? Infrastructure);
+}
+

@@ -36,6 +36,7 @@
                 <MudTh>Tenant</MudTh>
                 <MudTh>Contact</MudTh>
                 <MudTh>Status</MudTh>
+                <MudTh>Infrastructure</MudTh>
                 <MudTh>Plan</MudTh>
                 <MudTh>Created</MudTh>
                 <MudTh>Tenant code</MudTh>
@@ -55,6 +56,14 @@
                     </MudChip>
                 </MudTd>
                 <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@GetProvisioningColor(context.Id)">
+                        @GetProvisioningLabel(context.Id)
+                    </MudChip>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" Href="@($"/dashboard/infrastructure?tenantId={context.Id}")">
+                        Inspect
+                    </MudButton>
+                </MudTd>
+                <MudTd>
                     <MudText Typo="Typo.body2">@(context.CurrentPlanName ?? "Not assigned")</MudText>
                     <MudText Typo="Typo.caption">@(context.SubscriptionStatus ?? "No subscription")</MudText>
                 </MudTd>
@@ -67,6 +76,7 @@
 
 @code {
     private IReadOnlyList<Callio.Admin.Services.TenantItem> _tenants = [];
+    private IReadOnlyList<Callio.Admin.Services.TenantInfrastructureStatusItem> _infrastructure = [];
     private string _search = string.Empty;
 
     private IEnumerable<Callio.Admin.Services.TenantItem> FilteredTenants =>
@@ -76,5 +86,30 @@
             || tenant.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
             || tenant.ContactEmail.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
-    protected override async Task OnInitializedAsync() => _tenants = await Api.GetTenantsAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        _tenants = await Api.GetTenantsAsync();
+        _infrastructure = await Api.GetTenantInfrastructureAsync();
+    }
+
+    private Callio.Admin.Services.TenantInfrastructureStatusItem? GetProvisioning(int tenantId)
+        => _infrastructure.FirstOrDefault(x => x.TenantId == tenantId);
+
+    private Color GetProvisioningColor(int tenantId) => GetProvisioning(tenantId)?.Status switch
+    {
+        "Succeeded" => Color.Success,
+        "InProgress" => Color.Info,
+        "Failed" => Color.Error,
+        "Pending" => Color.Warning,
+        _ => Color.Default
+    };
+
+    private string GetProvisioningLabel(int tenantId) => GetProvisioning(tenantId)?.Status switch
+    {
+        "Succeeded" => "Healthy",
+        "InProgress" => "In progress",
+        "Failed" => "Failed",
+        "Pending" => "Pending",
+        _ => "Not started"
+    };
 }

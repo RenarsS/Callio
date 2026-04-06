@@ -11,12 +11,13 @@
         <div class="callio-kicker">Operations overview</div>
         <MudText Typo="Typo.h3" GutterBottom="true">Review portal onboarding and keep the tenant registry operational.</MudText>
         <MudText Typo="Typo.body1" Class="callio-lead">
-            This dashboard is the administrative side of the same Callio experience. Review incoming tenant requests, create approved tenants, and maintain the commercial scaffolding around them.
+            This dashboard is the administrative side of the same Callio experience. Review incoming tenant requests, create approved tenants, and keep their infrastructure healthy after approval.
         </MudText>
 
         <MudStack Row="true" Spacing="2" Class="mt-5">
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard/tenant-requests">Open tenant requests</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenants">Open tenant registry</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/infrastructure">Open infrastructure</MudButton>
             <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/plans">Open plan catalog</MudButton>
         </MudStack>
     </MudPaper>
@@ -35,8 +36,8 @@
             <div class="callio-stat-value">@_tenants.Count</div>
         </div>
         <div class="callio-stat">
-            <div class="callio-stat-label">Plans</div>
-            <div class="callio-stat-value">@_plans.Count</div>
+            <div class="callio-stat-label">Infra issues</div>
+            <div class="callio-stat-value">@InfrastructureIssues</div>
         </div>
     </div>
 
@@ -82,23 +83,68 @@
             </MudTable>
         </MudPaper>
     </div>
+
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+            <div>
+                <MudText Typo="Typo.h5">Infrastructure watch</MudText>
+                <MudText Typo="Typo.body2" Class="callio-lead">Provisioning state for tracked tenants, with a fast path into retry and reprovision controls.</MudText>
+            </div>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/infrastructure">Open operations</MudButton>
+        </MudStack>
+
+        <MudTable Items="InfrastructurePreview" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Tenant</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Failed step</MudTh>
+                <MudTh>Updated</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.TenantName</MudTd>
+                <MudTd><MudChip T="string" Size="Size.Small" Color="@GetInfrastructureColor(context.Status)">@GetInfrastructureLabel(context.Status)</MudChip></MudTd>
+                <MudTd>@(context.FailedStep ?? "None")</MudTd>
+                <MudTd>@context.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
 </MudStack>
 
 @code {
     private IReadOnlyList<Services.TenantRequestItem> _requests = [];
     private IReadOnlyList<Services.TenantItem> _tenants = [];
     private IReadOnlyList<Services.PlanItem> _plans = [];
+    private IReadOnlyList<Services.TenantInfrastructureStatusItem> _infrastructure = [];
 
     private int PendingCount => _requests.Count(x => x.Status == 1);
     private int ApprovedCount => _requests.Count(x => x.Status == 2);
+    private int InfrastructureIssues =>
+        _infrastructure.Count(x => x.Status == "Failed") +
+        _tenants.Count(x => _infrastructure.All(item => item.TenantId != x.Id));
+
+    private IEnumerable<InfrastructurePreviewItem> InfrastructurePreview =>
+        _infrastructure
+            .OrderByDescending(x => x.Status == "Failed")
+            .ThenByDescending(x => x.UpdatedAtUtc)
+            .Take(5)
+            .Select(x => new InfrastructurePreviewItem(
+                _tenants.FirstOrDefault(t => t.Id == x.TenantId)?.Name ?? $"Tenant #{x.TenantId}",
+                x.Status,
+                x.FailedStep,
+                x.UpdatedAtUtc));
 
     protected override async Task OnInitializedAsync()
     {
         _requests = await Api.GetTenantRequestsAsync();
         _tenants = await Api.GetTenantsAsync();
         _plans = await Api.GetPlansAsync();
+        _infrastructure = await Api.GetTenantInfrastructureAsync();
     }
 
     private static Color GetRequestColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };
     private static string GetRequestStatusLabel(int status) => status switch { 2 => "Approved", 3 => "Rejected", _ => "Pending" };
+    private static Color GetInfrastructureColor(string status) => status switch { "Succeeded" => Color.Success, "InProgress" => Color.Info, "Failed" => Color.Error, _ => Color.Warning };
+    private static string GetInfrastructureLabel(string status) => status switch { "Succeeded" => "Healthy", "InProgress" => "In progress", "Failed" => "Failed", _ => status };
+
+    private sealed record InfrastructurePreviewItem(string TenantName, string Status, string? FailedStep, DateTime UpdatedAtUtc);
 }

@@ -122,6 +122,34 @@
                                 This request was @GetStatusLabel(SelectedRequest.Status).ToLowerInvariant() on @SelectedRequest.ProcessedAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm").
                             </MudText>
                         </MudPaper>
+
+                        @if (SelectedRequest.Status == 2 && SelectedRequest.TenantId.HasValue)
+                        {
+                            <MudPaper Class="callio-card mt-4 pa-4" Elevation="0">
+                                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">Infrastructure onboarding</MudText>
+                                        <MudText Typo="Typo.body2" Class="callio-lead">Tenant provisioning continues after approval and can be retried from infrastructure operations when needed.</MudText>
+                                    </div>
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/dashboard/infrastructure?tenantId={SelectedRequest.TenantId.Value}")">Open infrastructure</MudButton>
+                                </MudStack>
+
+                                <MudStack Row="true" Spacing="1" Class="mt-3">
+                                    <MudChip T="string" Size="Size.Small" Color="@GetProvisioningColor(SelectedProvisioning)">
+                                        @GetProvisioningLabel(SelectedProvisioning)
+                                    </MudChip>
+                                    @if (!string.IsNullOrWhiteSpace(SelectedProvisioning?.FailedStep))
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@SelectedProvisioning.FailedStep</MudChip>
+                                    }
+                                </MudStack>
+
+                                @if (!string.IsNullOrWhiteSpace(SelectedProvisioning?.LastError))
+                                {
+                                    <MudText Typo="Typo.caption" Class="d-block mt-2">@SelectedProvisioning.LastError</MudText>
+                                }
+                            </MudPaper>
+                        }
                     }
                 }
             </MudPaper>
@@ -131,6 +159,7 @@
 
 @code {
     private IReadOnlyList<Callio.Admin.Services.TenantRequestItem> _requests = [];
+    private IReadOnlyList<Callio.Admin.Services.TenantInfrastructureStatusItem> _infrastructure = [];
     private int? _selectedRequestId;
     private string _search = string.Empty;
     private string _decisionNote = string.Empty;
@@ -146,11 +175,15 @@
     private Callio.Admin.Services.TenantRequestItem? SelectedRequest =>
         _selectedRequestId is null ? null : _requests.FirstOrDefault(x => x.Id == _selectedRequestId.Value);
 
+    private Callio.Admin.Services.TenantInfrastructureStatusItem? SelectedProvisioning =>
+        SelectedRequest?.TenantId is null ? null : _infrastructure.FirstOrDefault(x => x.TenantId == SelectedRequest.TenantId.Value);
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
         _requests = await Api.GetTenantRequestsAsync();
+        _infrastructure = await Api.GetTenantInfrastructureAsync();
 
         if (_selectedRequestId.HasValue && _requests.All(x => x.Id != _selectedRequestId.Value))
             _selectedRequestId = null;
@@ -210,4 +243,6 @@
 
     private static Color GetStatusColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };
     private static string GetStatusLabel(int status) => status switch { 2 => "Approved", 3 => "Rejected", _ => "Pending" };
+    private static Color GetProvisioningColor(Callio.Admin.Services.TenantInfrastructureStatusItem? item) => item?.Status switch { "Succeeded" => Color.Success, "InProgress" => Color.Info, "Failed" => Color.Error, "Pending" => Color.Warning, _ => Color.Default };
+    private static string GetProvisioningLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item) => item?.Status switch { "Succeeded" => "Infrastructure healthy", "InProgress" => "Provisioning in progress", "Failed" => "Provisioning failed", "Pending" => "Provisioning pending", _ => "Provisioning not started" };
 }
