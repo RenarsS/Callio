@@ -1,4 +1,4 @@
-﻿@page "/dashboard/tenants"
+@page "/dashboard/tenants"
 @layout DashboardLayout
 @rendermode InteractiveServer
 @inject Callio.Admin.Services.AdminApiClient Api
@@ -6,18 +6,39 @@
 <PageTitle>Tenants</PageTitle>
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudText Typo="Typo.h5">Tenant directory</MudText>
-        <MudText Typo="Typo.body2">Operational view of approved tenants and their current subscription linkage.</MudText>
-    </MudPaper>
+    <div class="callio-stat-row">
+        <div class="callio-stat">
+            <div class="callio-stat-label">Tenants</div>
+            <div class="callio-stat-value">@_tenants.Count</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">With active plan</div>
+            <div class="callio-stat-value">@_tenants.Count(x => !string.IsNullOrWhiteSpace(x.CurrentPlanName))</div>
+        </div>
+    </div>
 
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudTable Items="_tenants" Hover="true" Dense="true" Filter="FilterTenant">
-            <ToolBarContent>
-                <MudTextField @bind-Value="_search" Placeholder="Search tenant or contact" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
-            </ToolBarContent>
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+            <div>
+                <MudText Typo="Typo.h5">Tenant registry</MudText>
+                <MudText Typo="Typo.body2" Class="callio-lead">Approved tenants that are now part of the Callio platform.</MudText>
+            </div>
+            <MudTextField @bind-Value="_search"
+                          Placeholder="Search tenant, contact, or email"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Search" />
+        </MudStack>
+
+        <MudTable Items="FilteredTenants" Dense="true" Hover="true">
             <HeaderContent>
-                <MudTh>Tenant</MudTh><MudTh>Contact</MudTh><MudTh>Status</MudTh><MudTh>Plan</MudTh><MudTh>Created</MudTh><MudTh>Tenant code</MudTh>
+                <MudTh>Tenant</MudTh>
+                <MudTh>Contact</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Plan</MudTh>
+                <MudTh>Created</MudTh>
+                <MudTh>Tenant code</MudTh>
             </HeaderContent>
             <RowTemplate>
                 <MudTd>
@@ -28,7 +49,11 @@
                     <MudText Typo="Typo.body2">@context.ContactName</MudText>
                     <MudText Typo="Typo.caption">@context.ContactEmail</MudText>
                 </MudTd>
-                <MudTd><MudChip T="string" Size="Size.Small" Color="@(context.Status.Contains("Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">@context.Status</MudChip></MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@(context.Status.Contains("Active", StringComparison.OrdinalIgnoreCase) ? Color.Success : Color.Warning)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
                 <MudTd>
                     <MudText Typo="Typo.body2">@(context.CurrentPlanName ?? "Not assigned")</MudText>
                     <MudText Typo="Typo.caption">@(context.SubscriptionStatus ?? "No subscription")</MudText>
@@ -44,11 +69,12 @@
     private IReadOnlyList<Callio.Admin.Services.TenantItem> _tenants = [];
     private string _search = string.Empty;
 
-    protected override async Task OnInitializedAsync() => _tenants = await Api.GetTenantsAsync();
+    private IEnumerable<Callio.Admin.Services.TenantItem> FilteredTenants =>
+        _tenants.Where(tenant =>
+            string.IsNullOrWhiteSpace(_search)
+            || tenant.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || tenant.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || tenant.ContactEmail.Contains(_search, StringComparison.OrdinalIgnoreCase));
 
-    private bool FilterTenant(Callio.Admin.Services.TenantItem tenant)
-        => string.IsNullOrWhiteSpace(_search)
-           || tenant.Name.Contains(_search, StringComparison.OrdinalIgnoreCase)
-           || tenant.ContactName.Contains(_search, StringComparison.OrdinalIgnoreCase)
-           || tenant.ContactEmail.Contains(_search, StringComparison.OrdinalIgnoreCase);
+    protected override async Task OnInitializedAsync() => _tenants = await Api.GetTenantsAsync();
 }

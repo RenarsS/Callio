@@ -11,20 +11,17 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.3" />
-      <PackageReference Include="Microsoft.AspNetCore.Identity" Version="2.3.9" />
+      <PackageReference Include="MassTransit" Version="8.5.2" />
       <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.3" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
         <PrivateAssets>all</PrivateAssets>
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       </PackageReference>
       <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Admin\Callio.Admin.Application\Callio.Admin.Application.csproj" />
-      <ProjectReference Include="..\Callio.Identity.Application\Callio.Identity.Application.csproj" />
+      <ProjectReference Include="..\..\Core\Callio.Core.Infrastructure\Callio.Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Callio.Identity.Domain\Callio.Identity.Domain.csproj" />
     </ItemGroup>
 

@@ -1,90 +1,107 @@
-﻿@page "/tenant-registration"
+@page "/tenant-registration"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
-@inject Services.TenantRequestApi TenantRequestApi
+@inject Callio.Client.Services.TenantRequestApi TenantRequestApi
 
-<PageTitle>Tenant registration</PageTitle>
+<PageTitle>Start onboarding</PageTitle>
 
-<MudStack Spacing="3">
-    <MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);max-width:1100px;margin:auto;">
-        <MudText Typo="Typo.h4" GutterBottom="true">Register and request tenant creation</MudText>
-        <MudText Typo="Typo.body2" Class="mb-4">Create the first portal user, pick a subscription plan, and submit the onboarding request for Callio admin review.</MudText>
+<MudGrid Spacing="3">
+    <MudItem xs="12" lg="4">
+        <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+            <div class="callio-kicker">Portal onboarding</div>
+            <MudText Typo="Typo.h4" GutterBottom="true">Register the first customer user and request a tenant.</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                This form covers the full handoff into Callio: account owner details, tenant name, company context, and any notes the dashboard reviewer should see.
+            </MudText>
 
-        <MudGrid>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.FirstName" Label="First name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.LastName" Label="Last name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12" md="6"><MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Class="mb-3" Required="true" /></MudItem>
-            <MudItem xs="12"><MudTextField @bind-Value="_model.Notes" Label="Notes" Variant="Variant.Outlined" Lines="4" AutoGrow="true" Class="mb-2" /></MudItem>
-        </MudGrid>
+            <MudDivider Class="my-4" />
 
-        <MudDivider Class="my-4" />
-        <MudText Typo="Typo.h6" Class="mb-2">Choose a subscription plan</MudText>
+            <div class="callio-step">
+                <div class="callio-step-number">1</div>
+                <div>
+                    <MudText Typo="Typo.subtitle1">Create portal identity</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">The first user is created immediately and becomes the tenant owner after approval.</MudText>
+                </div>
+            </div>
 
-        <MudGrid>
-            @foreach (var plan in _plans)
+            <div class="callio-step">
+                <div class="callio-step-number">2</div>
+                <div>
+                    <MudText Typo="Typo.subtitle1">Submit for review</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">The tenant request enters the dashboard queue with a pending status and review note support.</MudText>
+                </div>
+            </div>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" lg="8">
+        <MudStack Spacing="3">
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                <MudText Typo="Typo.h5" GutterBottom="true">Account owner</MudText>
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.FirstName" Label="First name" Variant="Variant.Outlined" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.LastName" Label="Last name" Variant="Variant.Outlined" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.Password" Label="Password" Variant="Variant.Outlined" InputType="InputType.Password" Required="true" />
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                <MudText Typo="Typo.h5" GutterBottom="true">Tenant request</MudText>
+                <MudGrid>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.CompanyName" Label="Company name" Variant="Variant.Outlined" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12" md="6">
+                        <MudTextField @bind-Value="_model.TenantName" Label="Tenant name" Variant="Variant.Outlined" Required="true" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_model.Notes" Label="Implementation notes" Variant="Variant.Outlined" Lines="5" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudStack Row="true" Spacing="2" Class="mt-5">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(_submitting || !CanSubmit)" OnClick="SubmitAsync">
+                        @(_submitting ? "Submitting..." : "Register user and submit tenant request")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">Check existing request</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
             {
-                var selected = _model.RequestedPlanId == plan.Id;
-                <MudItem xs="12" md="4">
-                    <div @onclick="() => SelectPlan(plan)">
-                        <MudPaper Class="pa-4 h-100" Style="@GetPlanCardStyle(selected)">
-                            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
-                                <MudText Typo="Typo.h6">@plan.Name</MudText>
-                                @if (selected)
-                                {
-                                    <MudChip T="string" Color="Color.Primary" Size="Size.Small">Selected</MudChip>
-                                }
-                            </MudStack>
-                            <MudText Typo="Typo.body2" Class="mb-3">@plan.Description</MudText>
-                            <MudText Typo="Typo.h5">@plan.BasePrice @plan.Currency</MudText>
-                            <MudText Typo="Typo.caption">Billed @plan.BillingLabel.ToLowerInvariant()</MudText>
-                            <MudDivider Class="my-3" />
-                            @foreach (var quota in plan.Quotas.Take(4))
-                            {
-                                <MudText Typo="Typo.body2">• @quota.Metric: @quota.Limit</MudText>
-                            }
-                        </MudPaper>
-                    </div>
-                </MudItem>
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
             }
-        </MudGrid>
 
-        <MudStack Row="true" Spacing="2" Class="mt-4">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="SubmitAsync" Disabled="@(_busy || !CanSubmit)">Submit registration request</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/">Back</MudButton>
+            @if (_result is not null)
+            {
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <div class="callio-kicker">Request submitted</div>
+                    <MudText Typo="Typo.h5" GutterBottom="true">Callio received your onboarding request.</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@_result.Message</MudText>
+
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@StatusHref">Open request status</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/">Back to overview</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
         </MudStack>
-
-        @if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">@_error</MudAlert>
-        }
-
-        @if (_result is not null)
-        {
-            <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Class="mt-4">
-                @_result.Message<br />
-                User id: @_result.UserId<br />
-                Tenant request id: @_result.TenantRequestId<br />
-                Status: @_result.Status
-            </MudAlert>
-        }
-    </MudPaper>
-</MudStack>
+    </MudItem>
+</MudGrid>
 
 @code {
     private readonly TenantRegistrationVm _model = new();
-    private IReadOnlyList<Callio.Client.Models.PortalPlanResponse> _plans = [];
-    private bool _busy;
+    private bool _submitting;
     private string? _error;
-    private Services.PortalRegistrationResponse? _result;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _plans = await TenantRequestApi.GetPlansAsync();
-        if (_plans.Count > 0)
-            SelectPlan(_plans[0]);
-    }
+    private Callio.Client.Services.PortalRegistrationResponse? _result;
 
     private bool CanSubmit =>
         !string.IsNullOrWhiteSpace(_model.FirstName) &&
@@ -92,41 +109,34 @@
         !string.IsNullOrWhiteSpace(_model.Email) &&
         !string.IsNullOrWhiteSpace(_model.Password) &&
         !string.IsNullOrWhiteSpace(_model.CompanyName) &&
-        !string.IsNullOrWhiteSpace(_model.TenantName) &&
-        _model.RequestedPlanId is not null;
+        !string.IsNullOrWhiteSpace(_model.TenantName);
 
-    private static string GetPlanCardStyle(bool selected)
-        => $"cursor:pointer;border-radius:22px;border:2px solid {(selected ? "#6366f1" : "rgba(255,255,255,0.08)")};background:{(selected ? "rgba(99,102,241,0.12)" : "rgba(17,24,39,0.62)")}";
-
-    private void SelectPlan(Callio.Client.Models.PortalPlanResponse plan)
-    {
-        _model.RequestedPlanId = plan.Id;
-        _model.RequestedPlanName = plan.Name;
-    }
+    private string StatusHref =>
+        _result is null
+            ? "/tenant-request-status"
+            : $"/tenant-request-status?requestId={_result.TenantRequestId}&email={Uri.EscapeDataString(_result.Email)}";
 
     private async Task SubmitAsync()
     {
         if (!CanSubmit)
         {
-            _error = "Please complete all required fields and choose a plan.";
+            _error = "Complete the required account and tenant fields before submitting.";
             return;
         }
 
-        _busy = true;
+        _submitting = true;
         _error = null;
         _result = null;
 
         try
         {
-            _result = await TenantRequestApi.RegisterUserAndTenantAsync(new(
+            _result = await TenantRequestApi.RegisterUserAndTenantAsync(new Callio.Client.Services.RegisterPortalUserAndTenantRequest(
                 _model.Email,
                 _model.Password,
                 _model.FirstName,
                 _model.LastName,
                 _model.CompanyName,
                 _model.TenantName,
-                _model.RequestedPlanId,
-                _model.RequestedPlanName,
                 _model.Notes));
         }
         catch (Exception ex)
@@ -135,7 +145,7 @@
         }
         finally
         {
-            _busy = false;
+            _submitting = false;
         }
     }
 
@@ -147,8 +157,6 @@
         public string Password { get; set; } = string.Empty;
         public string CompanyName { get; set; } = string.Empty;
         public string TenantName { get; set; } = string.Empty;
-        public int? RequestedPlanId { get; set; }
-        public string? RequestedPlanName { get; set; }
         public string? Notes { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace Callio.Admin.Services;
 
@@ -54,13 +55,49 @@ public class AdminApiClient(HttpClient httpClient)
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)
     {
-        if (response.IsSuccessStatusCode) return;
-        var message = await response.Content.ReadAsStringAsync(ct);
-        throw new InvalidOperationException(string.IsNullOrWhiteSpace(message) ? response.ReasonPhrase : message);
+        if (response.IsSuccessStatusCode)
+            return;
+
+        var raw = (await response.Content.ReadAsStringAsync(ct)).Trim();
+        if (string.IsNullOrWhiteSpace(raw))
+            throw new InvalidOperationException(response.ReasonPhrase ?? "The request failed.");
+
+        if (raw.StartsWith("\"", StringComparison.Ordinal))
+        {
+            var message = JsonSerializer.Deserialize<string>(raw);
+            throw new InvalidOperationException(message ?? raw);
+        }
+
+        if (raw.StartsWith("{", StringComparison.Ordinal))
+        {
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+
+            if (root.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+                throw new InvalidOperationException(detail.GetString() ?? raw);
+
+            if (root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String)
+                throw new InvalidOperationException(message.GetString() ?? raw);
+        }
+
+        throw new InvalidOperationException(raw);
     }
 }
 
-public record TenantRequestItem(int Id, string TenantName, string CompanyName, string RequestedByEmail, string RequestedByFullName, int Status, DateTime RequestedAtUtc, DateTime? ProcessedAtUtc, string? DecisionNote, int? TenantId);
+public record TenantRequestItem(
+    int Id,
+    string TenantName,
+    string CompanyName,
+    string RequestedByEmail,
+    string RequestedByFullName,
+    int Status,
+    DateTime RequestedAtUtc,
+    DateTime? ProcessedAtUtc,
+    string? Notes,
+    string? DecisionNote,
+    string? ProcessedByUserId,
+    int? TenantId);
+
 public record TenantItem(int Id, string Name, Guid? TenantCode, string ContactName, string ContactEmail, DateTime CreatedAt, DateTime ActivatedAt, DateTime? DeactivatedAt, string Status, string? CurrentPlanName, string? SubscriptionStatus);
 public record PlanItem(int Id, string Name, string Description, decimal BasePrice, string Currency, int BillingInterval, int AnchorDay, bool IsActive, IReadOnlyList<PlanQuotaItem> Quotas);
 public record PlanQuotaItem(int Id, int UsageMetricId, string UsageMetricKey, string UsageMetricDisplayName, string Unit, decimal Limit, bool HardLimit, decimal? OverageUnitPrice, string? OverageCurrency);

@@ -6,14 +6,14 @@
 
 <PageTitle>Plans and quotas</PageTitle>
 
-<MudTabs Rounded="true" PanelClass="pt-4" @bind-ActivePanelIndex="_activeTabIndex">
+<MudTabs Rounded="true" @bind-ActivePanelIndex="_activeTabIndex">
     <MudTabPanel Text="Plans & quotas">
         <MudGrid>
             <MudItem xs="12" lg="4">
                 <MudPaper Class="pa-4" Elevation="0">
                     <MudText Typo="Typo.h6">@(_editingPlanId is null ? "Create plan" : "Edit plan")</MudText>
                     <MudTextField @bind-Value="_planForm.Name" Label="Name" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField @bind-Value="_planForm.Description" Label="Description" Variant="Variant.Outlined" Lines="3" AutoGrow="true" Class="mb-3" />
+                    <MudTextField @bind-Value="_planForm.Description" Label="Description" Variant="Variant.Outlined" Lines="3" Class="mb-3" />
                     <MudNumericField @bind-Value="_planForm.BasePrice" Label="Base price" Variant="Variant.Outlined" Class="mb-3" />
                     <MudTextField @bind-Value="_planForm.Currency" Label="Currency" Variant="Variant.Outlined" Class="mb-3" />
                     <MudSelect T="int" @bind-Value="_planForm.BillingInterval" Label="Billing interval" Variant="Variant.Outlined" Class="mb-3">

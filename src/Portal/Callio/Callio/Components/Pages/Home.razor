@@ -1,21 +1,62 @@
-﻿@page "/"
+@page "/"
 
 <PageTitle>Callio Portal</PageTitle>
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-6" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);">
-        <MudText Typo="Typo.h3" GutterBottom="true">Launch your tenant on the Callio platform</MudText>
-        <MudText Typo="Typo.body1" Class="mb-4">The portal lets a customer register the first user, choose a subscription plan, and request a tenant for approval in the Callio admin dashboard.</MudText>
-        <MudStack Row="true" Spacing="2">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-registration">Start registration</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">See request status</MudButton>
-        </MudStack>
+    <MudPaper Class="callio-card callio-card-strong callio-hero" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <div class="callio-kicker">Portal entry</div>
+                <MudText Typo="Typo.h3" GutterBottom="true">Launch tenant onboarding with one clear customer path.</MudText>
+                <MudText Typo="Typo.body1" Class="callio-lead">
+                    Callio Portal registers the first customer user, captures the tenant request, and hands the review queue over to the Callio dashboard without adding a second backend.
+                </MudText>
+
+                <MudStack Row="true" Spacing="2" Class="mt-6">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-registration">Start onboarding</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">Track request status</MudButton>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="5">
+                <div class="callio-stat-row">
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Step 1</div>
+                        <div class="callio-stat-value">Register</div>
+                    </div>
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Step 2</div>
+                        <div class="callio-stat-value">Request</div>
+                    </div>
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Step 3</div>
+                        <div class="callio-stat-value">Review</div>
+                    </div>
+                </div>
+            </MudItem>
+        </MudGrid>
     </MudPaper>
 
-    <MudGrid>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">1. Register user</MudText><MudText Typo="Typo.body2">Create the first power user for the future tenant.</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">2. Choose plan</MudText><MudText Typo="Typo.body2">Pick a seeded subscription plan before submitting onboarding.</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">3. Submit request</MudText><MudText Typo="Typo.body2">The tenant request is stored in the admin module with pending status.</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="pa-4 h-100" Style="background:rgba(26,29,46,0.95);border:1px solid rgba(255,255,255,0.08);"><MudText Typo="Typo.h6">4. Admin approval</MudText><MudText Typo="Typo.body2">Approval creates the tenant and links the requesting user.</MudText></MudPaper></MudItem>
-    </MudGrid>
+    <div class="callio-grid three">
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Unified identity</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                The portal and dashboard now speak the same visual language, so customer onboarding and admin review feel like parts of one product.
+            </MudText>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Tenant-led workflow</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                The first user and tenant request are created together, which keeps onboarding focused on the tenant module instead of spreading logic across the UI.
+            </MudText>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Status without duplex chat</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Customers can return to the status view with their request ID and email to see whether Callio approved or rejected the request.
+            </MudText>
+        </MudPaper>
+    </div>
 </MudStack>

@@ -1,53 +1,96 @@
 .portal-shell {
     min-height: 100vh;
-    background: linear-gradient(180deg, #0b1020 0%, #11182d 100%);
-    color: rgba(255,255,255,0.92);
 }
 
 .portal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.25rem 2rem;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-    background: rgba(12, 15, 26, 0.75);
-    backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 1.2rem 2rem;
+    border-bottom: 1px solid rgba(154, 171, 194, 0.12);
+    background: rgba(8, 17, 31, 0.78);
+    backdrop-filter: blur(18px);
 }
 
 .portal-brand {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.9rem;
+}
+
+.portal-brand-mark {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    font-family: "Space Grotesk", sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #08111f;
+    background: linear-gradient(135deg, #1cc7b8, #5eead4);
+    box-shadow: 0 14px 34px rgba(28, 199, 184, 0.25);
+}
+
+.portal-brand-title {
+    font-family: "Space Grotesk", sans-serif;
     font-weight: 700;
     letter-spacing: -0.03em;
 }
 
-.portal-brand ::deep .mud-icon-root {
-    color: #6366f1;
+.portal-brand-subtitle {
+    font-size: 0.85rem;
+    color: rgba(206, 218, 235, 0.62);
 }
 
 .portal-nav {
     display: flex;
+    justify-content: center;
     gap: 1rem;
     flex-wrap: wrap;
 }
 
 .portal-nav ::deep a {
-    color: rgba(255,255,255,0.72);
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    color: rgba(220, 232, 247, 0.76);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 700;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .portal-nav ::deep a.active,
 .portal-nav ::deep a:hover {
-    color: white;
+    color: #f5f8ff;
+    background: rgba(28, 199, 184, 0.12);
+    transform: translateY(-1px);
 }
 
 .portal-main {
-    max-width: 1100px;
+    max-width: 1240px;
     margin: 0 auto;
-    padding: 2rem;
+    padding: 2.25rem 1.5rem 3rem;
+}
+
+@media (max-width: 960px) {
+    .portal-header {
+        grid-template-columns: 1fr;
+        justify-items: start;
+    }
+
+    .portal-header-badge {
+        display: none;
+    }
+
+    .portal-nav {
+        justify-content: flex-start;
+    }
+
+    .portal-main {
+        padding-top: 1.5rem;
+    }
 }

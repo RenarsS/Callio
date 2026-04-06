@@ -10,6 +10,6 @@ builder.Services.AddScoped(sp => new HttpClient
     BaseAddress = new Uri("http://localhost:5043")
 });
 
-builder.Services.AddScoped<TenantRequestApi>();
+builder.Services.AddScoped<Callio.Client.Services.TenantRequestApi>();
 
 await builder.Build().RunAsync();

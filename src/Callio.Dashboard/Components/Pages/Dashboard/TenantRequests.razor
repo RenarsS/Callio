@@ -1,4 +1,4 @@
-﻿@page "/dashboard/tenant-requests"
+@page "/dashboard/tenant-requests"
 @layout DashboardLayout
 @rendermode InteractiveServer
 @inject Callio.Admin.Services.AdminApiClient Api
@@ -7,84 +7,174 @@
 <PageTitle>Tenant requests</PageTitle>
 
 <MudStack Spacing="3">
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-            <div>
-                <MudText Typo="Typo.h5">Tenant approval workflow</MudText>
-                <MudText Typo="Typo.body2">Approve or deny tenant creation requests from the Callio portal.</MudText>
-            </div>
-            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">Refresh</MudButton>
-        </MudStack>
-    </MudPaper>
+    <div class="callio-stat-row">
+        <div class="callio-stat">
+            <div class="callio-stat-label">Pending</div>
+            <div class="callio-stat-value">@_requests.Count(x => x.Status == 1)</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Approved</div>
+            <div class="callio-stat-value">@_requests.Count(x => x.Status == 2)</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Rejected</div>
+            <div class="callio-stat-value">@_requests.Count(x => x.Status == 3)</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Selected request</div>
+            <div class="callio-stat-value">@(SelectedRequest?.Id.ToString() ?? "None")</div>
+        </div>
+    </div>
 
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudTable Items="_requests" Hover="true" Dense="true" Filter="FilterRequest">
-            <ToolBarContent>
-                <MudTextField @bind-Value="_search" Placeholder="Search request, company, email" Variant="Variant.Outlined" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" Margin="Margin.Dense" />
-            </ToolBarContent>
-            <HeaderContent>
-                <MudTh>Tenant</MudTh><MudTh>Company</MudTh><MudTh>Requestor</MudTh><MudTh>Status</MudTh><MudTh>Submitted</MudTh><MudTh>Note</MudTh><MudTh></MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <MudText Typo="Typo.subtitle2">@context.TenantName</MudText>
-                    <MudText Typo="Typo.caption">ID: @context.Id</MudText>
-                </MudTd>
-                <MudTd>@context.CompanyName</MudTd>
-                <MudTd>
-                    <MudText Typo="Typo.body2">@context.RequestedByFullName</MudText>
-                    <MudText Typo="Typo.caption">@context.RequestedByEmail</MudText>
-                </MudTd>
-                <MudTd><MudChip T="string" Color="@GetStatusColor(context.Status)" Size="Size.Small">@GetStatusLabel(context.Status)</MudChip></MudTd>
-                <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-                <MudTd>@context.DecisionNote</MudTd>
-                <MudTd>
-                    @if (context.Status == 1)
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="8">
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                    <div>
+                        <MudText Typo="Typo.h5">Tenant approval queue</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">Review portal requests and move each one to an explicit decision.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="LoadAsync">Refresh</MudButton>
+                </MudStack>
+
+                <MudTextField @bind-Value="_search"
+                              Placeholder="Search by tenant, company, owner, or email"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Margin="Margin.Dense"
+                              Class="mb-4" />
+
+                <MudTable Items="FilteredRequests" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Tenant</MudTh>
+                        <MudTh>Owner</MudTh>
+                        <MudTh>Status</MudTh>
+                        <MudTh>Submitted</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>
+                            <MudText Typo="Typo.subtitle2">@context.TenantName</MudText>
+                            <MudText Typo="Typo.caption">@context.CompanyName</MudText>
+                        </MudTd>
+                        <MudTd>
+                            <MudText Typo="Typo.body2">@context.RequestedByFullName</MudText>
+                            <MudText Typo="Typo.caption">@context.RequestedByEmail</MudText>
+                        </MudTd>
+                        <MudTd>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(context.Status)">@GetStatusLabel(context.Status)</MudChip>
+                        </MudTd>
+                        <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                        <MudTd>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Button" OnClick="() => SelectRequest(context)">Review</MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="callio-card pa-5" Elevation="0">
+                @if (SelectedRequest is null)
+                {
+                    <MudText Typo="Typo.h6">Select a request</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">Choose a row from the queue to review tenant details, request notes, and decision actions.</MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.h5">@SelectedRequest.TenantName</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@SelectedRequest.CompanyName</MudText>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Requested by</MudText>
+                    <MudText Typo="Typo.body2">@SelectedRequest.RequestedByFullName</MudText>
+                    <MudText Typo="Typo.caption">@SelectedRequest.RequestedByEmail</MudText>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Request notes</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">@(string.IsNullOrWhiteSpace(SelectedRequest.Notes) ? "No request notes were provided." : SelectedRequest.Notes)</MudText>
+
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Decision note</MudText>
+                    <MudTextField @bind-Value="_decisionNote" Variant="Variant.Outlined" Lines="4" Placeholder="Optional note shown back to the customer in the portal status page." />
+
+                    @if (SelectedRequest.Status == 1)
                     {
-                        <MudStack Row="true" Spacing="1">
-                            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Success" OnClick="() => ProcessAsync(context.Id, true)">Approve</MudButton>
-                            <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Error" OnClick="() => ProcessAsync(context.Id, false)">Reject</MudButton>
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" ButtonType="ButtonType.Button" OnClick="() => ProcessSelectedAsync(true)">Approve</MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" ButtonType="ButtonType.Button" OnClick="() => ProcessSelectedAsync(false)">Reject</MudButton>
                         </MudStack>
                     }
-                </MudTd>
-            </RowTemplate>
-        </MudTable>
-    </MudPaper>
-
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudText Typo="Typo.subtitle1">Decision note</MudText>
-        <MudTextField @bind-Value="_decisionNote" Variant="Variant.Outlined" Lines="3" AutoGrow="true" Placeholder="Optional note added when approving or rejecting the next selected request." />
-    </MudPaper>
+                    else
+                    {
+                        <MudPaper Class="callio-card mt-4 pa-4" Elevation="0">
+                            <MudText Typo="Typo.subtitle2">Processed</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead">
+                                This request was @GetStatusLabel(SelectedRequest.Status).ToLowerInvariant() on @SelectedRequest.ProcessedAtUtc?.ToLocalTime().ToString("dd MMM yyyy HH:mm").
+                            </MudText>
+                        </MudPaper>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 </MudStack>
 
 @code {
     private IReadOnlyList<Callio.Admin.Services.TenantRequestItem> _requests = [];
+    private int? _selectedRequestId;
     private string _search = string.Empty;
     private string _decisionNote = string.Empty;
+
+    private IEnumerable<Callio.Admin.Services.TenantRequestItem> FilteredRequests =>
+        _requests.Where(item =>
+            string.IsNullOrWhiteSpace(_search)
+            || item.TenantName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || item.CompanyName.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || item.RequestedByEmail.Contains(_search, StringComparison.OrdinalIgnoreCase)
+            || item.RequestedByFullName.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private Callio.Admin.Services.TenantRequestItem? SelectedRequest =>
+        _selectedRequestId is null ? null : _requests.FirstOrDefault(x => x.Id == _selectedRequestId.Value);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
         _requests = await Api.GetTenantRequestsAsync();
-        StateHasChanged();
+
+        if (_selectedRequestId.HasValue && _requests.All(x => x.Id != _selectedRequestId.Value))
+            _selectedRequestId = null;
+
+        if (_selectedRequestId is null)
+        {
+            var preferred = _requests.FirstOrDefault(x => x.Status == 1) ?? _requests.FirstOrDefault();
+            if (preferred is not null)
+                SelectRequest(preferred);
+        }
     }
 
-    private bool FilterRequest(Callio.Admin.Services.TenantRequestItem item)
-        => string.IsNullOrWhiteSpace(_search)
-           || item.TenantName.Contains(_search, StringComparison.OrdinalIgnoreCase)
-           || item.CompanyName.Contains(_search, StringComparison.OrdinalIgnoreCase)
-           || item.RequestedByEmail.Contains(_search, StringComparison.OrdinalIgnoreCase)
-           || item.RequestedByFullName.Contains(_search, StringComparison.OrdinalIgnoreCase);
-
-    private async Task ProcessAsync(int requestId, bool approve)
+    private void SelectRequest(Callio.Admin.Services.TenantRequestItem item)
     {
+        _selectedRequestId = item.Id;
+        _decisionNote = item.DecisionNote ?? string.Empty;
+    }
+
+    private async Task ProcessSelectedAsync(bool approve)
+    {
+        if (SelectedRequest is null)
+            return;
+
         try
         {
             if (approve)
-                await Api.ApproveRequestAsync(requestId, _decisionNote);
+                await Api.ApproveRequestAsync(SelectedRequest.Id, _decisionNote);
             else
-                await Api.RejectRequestAsync(requestId, _decisionNote);
+                await Api.RejectRequestAsync(SelectedRequest.Id, _decisionNote);
 
             Snackbar.Add(approve ? "Request approved." : "Request rejected.", Severity.Success);
             await LoadAsync();

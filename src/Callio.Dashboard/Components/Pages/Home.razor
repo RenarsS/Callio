@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @page "/dashboard"
 @layout DashboardLayout
 @rendermode InteractiveServer
@@ -7,98 +7,93 @@
 <PageTitle>Dashboard overview</PageTitle>
 
 <MudStack Spacing="3">
-    <MudPaper Class="hero-panel pa-6">
-        <MudGrid AlignItems="AlignItems.Center">
-            <MudItem xs="12" md="8">
-                <MudText Typo="Typo.h4" GutterBottom="true">Admin UI for your multitenant RAG platform</MudText>
-                <MudText Typo="Typo.body1" Class="mb-4">Track incoming tenant requests, manage subscription plans and quota scaffolding, and keep an eye on the current tenant base from one place.</MudText>
-                <MudStack Row="true" Spacing="2">
-                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard/tenant-requests">Review requests</MudButton>
-                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/plans">Manage plans</MudButton>
-                    <MudButton ButtonType="ButtonType.Button" Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/tenants">View tenants</MudButton>
-                </MudStack>
-            </MudItem>
-            <MudItem xs="12" md="4">
-                <MudPaper Class="stat-card pa-4" Elevation="0">
-                    <MudText Typo="Typo.caption">Seeded pricing</MudText>
-                    <MudText Typo="Typo.h5" Class="mt-1">Starter · Growth · Enterprise</MudText>
-                    <MudText Typo="Typo.body2">Ready to be edited through dashboard CRUD screens.</MudText>
-                </MudPaper>
-            </MudItem>
-        </MudGrid>
-    </MudPaper>
+    <MudPaper Class="callio-card callio-card-strong pa-6" Elevation="0">
+        <div class="callio-kicker">Operations overview</div>
+        <MudText Typo="Typo.h3" GutterBottom="true">Review portal onboarding and keep the tenant registry operational.</MudText>
+        <MudText Typo="Typo.body1" Class="callio-lead">
+            This dashboard is the administrative side of the same Callio experience. Review incoming tenant requests, create approved tenants, and maintain the commercial scaffolding around them.
+        </MudText>
 
-    <MudGrid>
-        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Pending requests</MudText><MudText Typo="Typo.h4">@PendingCount</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Tenants</MudText><MudText Typo="Typo.h4">@_tenants.Count</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Subscription plans</MudText><MudText Typo="Typo.h4">@_plans.Count</MudText></MudPaper></MudItem>
-        <MudItem xs="12" md="3"><MudPaper Class="stat-card pa-4" Elevation="0"><MudText Typo="Typo.caption">Usage metrics</MudText><MudText Typo="Typo.h4">@_metrics.Count</MudText></MudPaper></MudItem>
-    </MudGrid>
-
-
-    <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="stat-card pa-4" Elevation="0">
-                <MudText Typo="Typo.subtitle1">Tenant requests</MudText>
-                <MudText Typo="Typo.body2" Class="mb-3">Approve or reject onboarding requests.</MudText>
-                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenant-requests">Open requests</MudButton>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="stat-card pa-4" Elevation="0">
-                <MudText Typo="Typo.subtitle1">Plans &amp; quotas</MudText>
-                <MudText Typo="Typo.body2" Class="mb-3">Manage subscription plans, metrics, and quota scaffolding.</MudText>
-                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/plans">Open billing</MudButton>
-            </MudPaper>
-        </MudItem>
-        <MudItem xs="12" md="4">
-            <MudPaper Class="stat-card pa-4" Elevation="0">
-                <MudText Typo="Typo.subtitle1">Tenants</MudText>
-                <MudText Typo="Typo.body2" Class="mb-3">Review approved tenants and subscription linkage.</MudText>
-                <MudButton ButtonType="ButtonType.Button" Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenants">Open tenants</MudButton>
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
-
-    <MudPaper Class="pa-4" Elevation="0">
-        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudText Typo="Typo.h6">Latest onboarding requests</MudText>
-            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/tenant-requests">Open queue</MudButton>
+        <MudStack Row="true" Spacing="2" Class="mt-5">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/dashboard/tenant-requests">Open tenant requests</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/dashboard/tenants">Open tenant registry</MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/dashboard/plans">Open plan catalog</MudButton>
         </MudStack>
-
-        <MudTable Items="@_requests.Take(5)" Hover="true" Dense="true">
-            <HeaderContent>
-                <MudTh>Tenant</MudTh>
-                <MudTh>Company</MudTh>
-                <MudTh>Requested by</MudTh>
-                <MudTh>Status</MudTh>
-                <MudTh>Requested</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>@context.TenantName</MudTd>
-                <MudTd>@context.CompanyName</MudTd>
-                <MudTd>@context.RequestedByFullName</MudTd>
-                <MudTd><MudChip T="string" Color="@GetRequestColor(context.Status)" Size="Size.Small">@GetRequestStatusLabel(context.Status)</MudChip></MudTd>
-                <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
-            </RowTemplate>
-        </MudTable>
     </MudPaper>
+
+    <div class="callio-stat-row four">
+        <div class="callio-stat">
+            <div class="callio-stat-label">Pending requests</div>
+            <div class="callio-stat-value">@PendingCount</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Approved requests</div>
+            <div class="callio-stat-value">@ApprovedCount</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Live tenants</div>
+            <div class="callio-stat-value">@_tenants.Count</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Plans</div>
+            <div class="callio-stat-value">@_plans.Count</div>
+        </div>
+    </div>
+
+    <div class="callio-grid-two">
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h5" GutterBottom="true">Queue health</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead mb-4">Latest portal submissions waiting for approval or rejection.</MudText>
+
+            <MudTable Items="@_requests.Take(5)" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Tenant</MudTh>
+                    <MudTh>Company</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Requested</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.TenantName</MudTd>
+                    <MudTd>@context.CompanyName</MudTd>
+                    <MudTd><MudChip T="string" Color="@GetRequestColor(context.Status)" Size="Size.Small">@GetRequestStatusLabel(context.Status)</MudChip></MudTd>
+                    <MudTd>@context.RequestedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h5" GutterBottom="true">Current focus</MudText>
+            <MudStack Spacing="2">
+                <MudPaper Class="callio-card pa-4" Elevation="0">
+                    <MudText Typo="Typo.subtitle1">Tenant requests</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">Approve or reject customer onboarding requests and write the customer-facing decision note.</MudText>
+                </MudPaper>
+                <MudPaper Class="callio-card pa-4" Elevation="0">
+                    <MudText Typo="Typo.subtitle1">Tenant registry</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">Review approved tenants, linked contact information, and current plan assignments.</MudText>
+                </MudPaper>
+                <MudPaper Class="callio-card pa-4" Elevation="0">
+                    <MudText Typo="Typo.subtitle1">Plans &amp; quotas</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">Keep pricing and quota scaffolding aligned with the multi-tenant RAG platform rollout.</MudText>
+                </MudPaper>
+            </MudStack>
+        </MudPaper>
+    </div>
 </MudStack>
 
 @code {
     private IReadOnlyList<Services.TenantRequestItem> _requests = [];
     private IReadOnlyList<Services.TenantItem> _tenants = [];
     private IReadOnlyList<Services.PlanItem> _plans = [];
-    private IReadOnlyList<Services.UsageMetricItem> _metrics = [];
 
     private int PendingCount => _requests.Count(x => x.Status == 1);
+    private int ApprovedCount => _requests.Count(x => x.Status == 2);
 
     protected override async Task OnInitializedAsync()
     {
         _requests = await Api.GetTenantRequestsAsync();
         _tenants = await Api.GetTenantsAsync();
         _plans = await Api.GetPlansAsync();
-        _metrics = await Api.GetUsageMetricsAsync();
     }
 
     private static Color GetRequestColor(int status) => status switch { 2 => Color.Success, 3 => Color.Error, _ => Color.Warning };

@@ -1,12 +1,12 @@
-﻿namespace Callio.Admin.API.Contracts.Tenants;
+namespace Callio.Admin.API.Contracts.Tenants;
 
-public record CreateTenantRequestRequest(
-    string TenantName,
-    string RequestedByUserId,
-    string RequestedByEmail,
-    string RequestedByFirstName,
-    string RequestedByLastName,
+public record RegisterPortalUserAndTenantRequest(
+    string Email,
+    string Password,
+    string FirstName,
+    string LastName,
     string CompanyName,
+    string TenantName,
     string? Notes);
 
 public record ProcessTenantRequestRequest(

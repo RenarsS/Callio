@@ -7,7 +7,7 @@ namespace Callio.Identity.Infrastructure.Persistence;
 public class AppIdentityDbContext(DbContextOptions<AppIdentityDbContext> options)
     : IdentityDbContext<ApplicationUser>(options)
 {
-    public DbSet<ApplicationUser> Users => Set<ApplicationUser>();
+    public new DbSet<ApplicationUser> Users => Set<ApplicationUser>();
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

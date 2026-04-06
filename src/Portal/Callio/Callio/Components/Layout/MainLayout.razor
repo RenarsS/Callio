@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
 <MudThemeProvider Theme="_theme" IsDarkMode="true" />
 <MudPopoverProvider />
@@ -8,15 +8,24 @@
 <div class="portal-shell">
     <header class="portal-header">
         <div class="portal-brand">
-            <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" />
-            <span>Callio Portal</span>
+            <div class="portal-brand-mark">C</div>
+            <div>
+                <div class="portal-brand-title">Callio</div>
+                <div class="portal-brand-subtitle">Tenant onboarding portal</div>
+            </div>
         </div>
 
         <nav class="portal-nav">
             <NavLink href="/" Match="NavLinkMatch.All">Overview</NavLink>
-            <NavLink href="/tenant-registration">Register & request tenant</NavLink>
+            <NavLink href="/tenant-registration">Start onboarding</NavLink>
             <NavLink href="/tenant-request-status">Request status</NavLink>
         </nav>
+
+        <div class="portal-header-badge">
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                Shared Callio identity
+            </MudChip>
+        </div>
     </header>
 
     <main class="portal-main">
@@ -29,17 +38,31 @@
     {
         PaletteDark = new PaletteDark
         {
-            Primary = "#6366f1",
-            PrimaryDarken = "#4f46e5",
-            PrimaryLighten = "#818cf8",
-            Secondary = "#8b5cf6",
-            Background = "#0f1117",
-            BackgroundGray = "#13151f",
-            Surface = "#1a1d2e",
-            AppbarBackground = "#13151f",
-            DrawerBackground = "#13151f",
-            TextPrimary = "rgba(255,255,255,0.92)",
-            TextSecondary = "rgba(255,255,255,0.55)"
+            Primary = "#1cc7b8",
+            PrimaryDarken = "#13a79a",
+            PrimaryLighten = "#69e3d8",
+            Secondary = "#f59e0b",
+            SecondaryContrastText = "#08111f",
+            Background = "#08111f",
+            BackgroundGray = "#0d1627",
+            Surface = "#101a2c",
+            AppbarBackground = "#08111f",
+            DrawerBackground = "#0b1424",
+            TextPrimary = "rgba(245,248,255,0.96)",
+            TextSecondary = "rgba(206,218,235,0.72)",
+            Divider = "rgba(154,171,194,0.16)",
+            TableLines = "rgba(154,171,194,0.16)",
+            LinesInputs = "rgba(154,171,194,0.18)"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = ["Manrope", "sans-serif"] },
+            H1 = new H1Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" },
+            H2 = new H2Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" },
+            H3 = new H3Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" },
+            H4 = new H4Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" },
+            H5 = new H5Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" },
+            H6 = new H6Typography { FontFamily = ["Space Grotesk", "sans-serif"], FontWeight = "700" }
         }
     };
 }

@@ -1,6 +1,6 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 
-<MudThemeProvider />
+<MudThemeProvider Theme="MainLayout.AppTheme" IsDarkMode="true" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -11,53 +11,47 @@
             <MudIconButton Icon="@Icons.Material.Filled.Menu"
                            Color="Color.Inherit"
                            Edge="Edge.Start"
-                           OnClick="ToggleDrawer"
-                           AriaLabel="Toggle navigation" />
-            <MudText Typo="Typo.h6" Class="ml-2 dashboard-title">Callio Control Center</MudText>
+                           OnClick="ToggleDrawer" />
+
+            <div class="dashboard-title-block">
+                <MudText Typo="Typo.h6" Class="dashboard-title">Callio Command Center</MudText>
+                <MudText Typo="Typo.caption">Tenant review and operational control</MudText>
+            </div>
+
             <MudSpacer />
-            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Class="mr-3">
-                Admin workspace
+
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Outlined" Class="dashboard-chip">
+                Shared backend
             </MudChip>
-            <MudAvatar Style="width:36px;height:36px;background:#6366f1;font-size:14px;">CA</MudAvatar>
+
+            <MudAvatar Class="dashboard-avatar">CA</MudAvatar>
         </MudAppBar>
 
         <MudDrawer @bind-Open="_drawerOpen"
                    Variant="DrawerVariant.Responsive"
-                   Breakpoint="Breakpoint.Md"
+                   Breakpoint="Breakpoint.Lg"
                    Overlay="true"
                    Elevation="0"
                    Class="dashboard-drawer">
             <div class="drawer-brand">
-                <div class="drawer-brand-icon">
-                    <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Style="color:#7c3aed;font-size:20px;" />
-                </div>
+                <div class="drawer-brand-icon">C</div>
                 <div>
-                    <MudText Typo="Typo.subtitle1" Style="font-weight:700;">Callio Dashboard</MudText>
-                    <MudText Typo="Typo.caption">Tenant operations &amp; plans</MudText>
+                    <MudText Typo="Typo.subtitle1" Class="drawer-brand-title">Callio Dashboard</MudText>
+                    <MudText Typo="Typo.caption">Portal review, tenant registry, plan control</MudText>
                 </div>
             </div>
 
-            <MudDivider Class="mb-2" />
-
             <MudNavMenu Bordered="false" Rounded="true">
-                <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.SpaceDashboard">
-                    Overview
-                </MudNavLink>
-                <MudNavLink Href="/dashboard/tenant-requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FactCheck">
-                    Tenant requests
-                </MudNavLink>
-                <MudNavLink Href="/dashboard/plans" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Payments">
-                    Plans &amp; quotas
-                </MudNavLink>
-                <MudNavLink Href="/dashboard/tenants" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Domain">
-                    Tenants
-                </MudNavLink>
+                <MudNavLink Href="/dashboard" Match="NavLinkMatch.All" Icon="@Icons.Material.Outlined.SpaceDashboard">Overview</MudNavLink>
+                <MudNavLink Href="/dashboard/tenant-requests" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.FactCheck">Tenant requests</MudNavLink>
+                <MudNavLink Href="/dashboard/tenants" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Domain">Tenants</MudNavLink>
+                <MudNavLink Href="/dashboard/plans" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Outlined.Payments">Plans &amp; quotas</MudNavLink>
             </MudNavMenu>
 
             <MudPaper Class="sidebar-cta" Elevation="0">
-                <MudText Typo="Typo.subtitle2" Class="mb-1">Multi-tenant RAG at a glance</MudText>
+                <MudText Typo="Typo.subtitle2">Current focus</MudText>
                 <MudText Typo="Typo.body2">
-                    Review onboarding, shape pricing, and prepare quota scaffolding for ingestion and usage telemetry.
+                    Review new tenant onboarding, maintain the tenant registry, and keep pricing controls ready for the next RAG customer rollout.
                 </MudText>
             </MudPaper>
         </MudDrawer>

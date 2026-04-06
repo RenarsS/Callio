@@ -1,15 +1,36 @@
-﻿using Callio.Admin.Domain.Enums;
+using Callio.Admin.Domain.Enums;
 
 namespace Callio.Admin.Application.Tenants;
 
-public record CreateTenantRequestCommand(
-    string TenantName,
-    string RequestedByUserId,
-    string RequestedByEmail,
-    string RequestedByFirstName,
-    string RequestedByLastName,
+public record RegisterPortalUserAndTenantCommand(
+    string Email,
+    string Password,
+    string FirstName,
+    string LastName,
     string CompanyName,
+    string TenantName,
     string? Notes);
+
+public record PortalTenantOnboardingResultDto(
+    string UserId,
+    int TenantRequestId,
+    string Email,
+    string TenantName,
+    string CompanyName,
+    string Status,
+    string Message);
+
+public record PortalTenantRequestStatusDto(
+    int Id,
+    string TenantName,
+    string CompanyName,
+    string RequestedByEmail,
+    string RequestedByFullName,
+    string Status,
+    DateTime RequestedAtUtc,
+    DateTime? ProcessedAtUtc,
+    string? DecisionNote,
+    int? TenantId);
 
 public record ProcessTenantRequestCommand(
     int RequestId,
@@ -25,5 +46,7 @@ public record TenantRequestListItemDto(
     TenantRequestStatus Status,
     DateTime RequestedAtUtc,
     DateTime? ProcessedAtUtc,
+    string? Notes,
     string? DecisionNote,
+    string? ProcessedByUserId,
     int? TenantId);
