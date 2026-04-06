@@ -78,6 +78,20 @@
                             <MudText Typo="Typo.body2" Class="callio-lead">@_status.DecisionNote</MudText>
                         </MudPaper>
                     }
+
+                    @if (_status.Status == "Approved" && _status.TenantId.HasValue)
+                    {
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Href="@($"/tenant-knowledge-settings?tenantId={_status.TenantId.Value}")">
+                                Open knowledge settings
+                            </MudButton>
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-knowledge-settings">
+                                Open settings manually
+                            </MudButton>
+                        </MudStack>
+                    }
                 </MudPaper>
             }
         </MudStack>

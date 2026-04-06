@@ -7,14 +7,15 @@
         <MudGrid>
             <MudItem xs="12" md="7">
                 <div class="callio-kicker">Portal entry</div>
-                <MudText Typo="Typo.h3" GutterBottom="true">Launch tenant onboarding with one clear customer path.</MudText>
+                <MudText Typo="Typo.h3" GutterBottom="true">Onboard tenants, track approvals, and tune knowledge behavior in one portal.</MudText>
                 <MudText Typo="Typo.body1" Class="callio-lead">
-                    Callio Portal registers the first customer user, captures the tenant request, and hands the review queue over to the Callio dashboard without adding a second backend.
+                    Callio Portal now covers the full early tenant journey: register the first customer user, capture the tenant request, track approval, and manage the active knowledge settings that drive the tenant's RAG experience.
                 </MudText>
 
                 <MudStack Row="true" Spacing="2" Class="mt-6">
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-registration">Start onboarding</MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">Track request status</MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-knowledge-settings">Knowledge settings</MudButton>
                 </MudStack>
             </MudItem>
 
@@ -53,9 +54,9 @@
         </MudPaper>
 
         <MudPaper Class="callio-card pa-5" Elevation="0">
-            <MudText Typo="Typo.h6" GutterBottom="true">Status without duplex chat</MudText>
+            <MudText Typo="Typo.h6" GutterBottom="true">Knowledge controls</MudText>
             <MudText Typo="Typo.body2" Class="callio-lead">
-                Customers can return to the status view with their request ID and email to see whether Callio approved or rejected the request.
+                Approved tenants can now review prompts, retrieval thresholds, chunking strategy, and upload rules directly from Portal without waiting on an admin screen.
             </MudText>
         </MudPaper>
     </div>
