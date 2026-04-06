@@ -9,7 +9,7 @@ public class ProvisioningDbContext(DbContextOptions<ProvisioningDbContext> optio
 
     public DbSet<TenantInfrastructureProvisioningStep> TenantInfrastructureProvisioningSteps { get; set; }
 
-    public DbSet<TenantKnowledgeBaseSettings> TenantKnowledgeBaseSettings { get; set; }
+    public DbSet<TenantKnowledgeConfigurationSetup> TenantKnowledgeConfigurationSetups { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,12 +42,10 @@ public class ProvisioningDbContext(DbContextOptions<ProvisioningDbContext> optio
             builder.HasIndex(x => new { x.TenantInfrastructureProvisioningId, x.Name }).IsUnique();
         });
 
-        modelBuilder.Entity<TenantKnowledgeBaseSettings>(builder =>
+        modelBuilder.Entity<TenantKnowledgeConfigurationSetup>(builder =>
         {
-            builder.Property(x => x.DatabaseSchema).HasMaxLength(128);
-            builder.Property(x => x.VectorStoreNamespace).HasMaxLength(256);
-            builder.Property(x => x.EmbeddingProvider).HasMaxLength(100);
-            builder.Property(x => x.EmbeddingModel).HasMaxLength(200);
+            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
+            builder.Property(x => x.LastError).HasMaxLength(4000);
 
             builder.HasIndex(x => x.TenantId).IsUnique();
         });

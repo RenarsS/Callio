@@ -22,7 +22,7 @@
         </div>
         <div class="callio-stat">
             <div class="callio-stat-label">Needs attention</div>
-            <div class="callio-stat-value">@Rows.Count(x => x.Infrastructure is null || x.Infrastructure.Status == "Failed")</div>
+            <div class="callio-stat-value">@Rows.Count(x => x.Infrastructure is null || x.Infrastructure.Status == "Failed" || x.Infrastructure.KnowledgeConfigurationSetup?.Status == "Failed")</div>
         </div>
     </div>
 
@@ -62,6 +62,9 @@
                             <MudChip T="string" Size="Size.Small" Color="@GetInfrastructureColor(context.Infrastructure)">
                                 @GetInfrastructureLabel(context.Infrastructure)
                             </MudChip>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Class="ml-2" Color="@GetKnowledgeConfigurationColor(context.Infrastructure)">
+                                @GetKnowledgeConfigurationLabel(context.Infrastructure)
+                            </MudChip>
                             @if (!string.IsNullOrWhiteSpace(context.Infrastructure?.FailedStep))
                             {
                                 <MudText Typo="Typo.caption" Class="d-block mt-1">@context.Infrastructure.FailedStep</MudText>
@@ -97,6 +100,9 @@
                     <MudStack Row="true" Spacing="1" Class="mt-4">
                         <MudChip T="string" Size="Size.Small" Color="@GetInfrastructureColor(SelectedRow.Infrastructure)">
                             @GetInfrastructureLabel(SelectedRow.Infrastructure)
+                        </MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="@GetKnowledgeConfigurationColor(SelectedRow.Infrastructure)">
+                            @GetKnowledgeConfigurationLabel(SelectedRow.Infrastructure)
                         </MudChip>
                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
                             Tenant #@SelectedRow.Tenant.Id
@@ -170,16 +176,62 @@
                         </MudTable>
                     }
 
+                    <MudDivider Class="my-4" />
+
+                    <MudText Typo="Typo.subtitle2">Knowledge configuration setup</MudText>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-3">
+                        <MudChip T="string" Size="Size.Small" Color="@GetKnowledgeConfigurationColor(SelectedRow.Infrastructure)">
+                            @GetKnowledgeConfigurationLabel(SelectedRow.Infrastructure)
+                        </MudChip>
+                        @if (SelectedRow.Infrastructure?.KnowledgeConfigurationSetup?.ActiveConfigurationId is int configurationId)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">
+                                Config #@configurationId
+                            </MudChip>
+                        }
+                    </MudStack>
+
+                    <MudText Typo="Typo.body2" Class="mt-3">
+                        Attempts: @(SelectedRow.Infrastructure?.KnowledgeConfigurationSetup?.AttemptCount ?? 0)
+                    </MudText>
+                    <MudText Typo="Typo.caption">
+                        Updated: @GetKnowledgeConfigurationUpdatedLabel(SelectedRow.Infrastructure)
+                    </MudText>
+
+                    @if (!string.IsNullOrWhiteSpace(SelectedRow.Infrastructure?.KnowledgeConfigurationSetup?.LastError))
+                    {
+                        <MudPaper Class="callio-card mt-4 pa-4" Elevation="0">
+                            <MudText Typo="Typo.subtitle2">Configuration setup failure</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead">@SelectedRow.Infrastructure.KnowledgeConfigurationSetup.LastError</MudText>
+                        </MudPaper>
+                    }
+
+                    @if (CanRetryKnowledgeConfiguration(SelectedRow.Infrastructure))
+                    {
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Warning"
+                                       Disabled="_isProcessing"
+                                       ButtonType="ButtonType.Button"
+                                       OnClick="RetryKnowledgeConfigurationSelectedAsync">
+                                Retry configuration setup
+                            </MudButton>
+                        </MudStack>
+                    }
+
                     @if (SelectedRow.Infrastructure?.Settings is not null)
                     {
                         <MudDivider Class="my-4" />
 
-                        <MudText Typo="Typo.subtitle2">Knowledge defaults</MudText>
+                        <MudText Typo="Typo.subtitle2">Active knowledge configuration</MudText>
                         <MudText Typo="Typo.body2">Embedding: @SelectedRow.Infrastructure.Settings.EmbeddingProvider / @SelectedRow.Infrastructure.Settings.EmbeddingModel</MudText>
-                        <MudText Typo="Typo.body2">Chunking: @SelectedRow.Infrastructure.Settings.ChunkSize tokens with @SelectedRow.Infrastructure.Settings.ChunkOverlap overlap</MudText>
-                        <MudText Typo="Typo.body2">Retrieval top K: @SelectedRow.Infrastructure.Settings.RetrievalTopK</MudText>
+                        <MudText Typo="Typo.body2">Generation model: @SelectedRow.Infrastructure.Settings.GenerationModel</MudText>
+                        <MudText Typo="Typo.body2">Chunking: @SelectedRow.Infrastructure.Settings.ChunkSize with @SelectedRow.Infrastructure.Settings.ChunkOverlap overlap</MudText>
+                        <MudText Typo="Typo.body2">Retrieval: top @SelectedRow.Infrastructure.Settings.TopKRetrievalCount, final context max @SelectedRow.Infrastructure.Settings.MaximumChunksInFinalContext</MudText>
+                        <MudText Typo="Typo.body2">Similarity threshold: @SelectedRow.Infrastructure.Settings.MinimumSimilarityThreshold</MudText>
+                        <MudText Typo="Typo.body2">Allowed file types: @string.Join(", ", SelectedRow.Infrastructure.Settings.AllowedFileTypes)</MudText>
                         <MudText Typo="Typo.caption">
-                            Ingestion @(SelectedRow.Infrastructure.Settings.IngestionEnabled ? "enabled" : "disabled"), retrieval @(SelectedRow.Infrastructure.Settings.RetrievalEnabled ? "enabled" : "disabled")
+                            Max file size @FormatFileSize(SelectedRow.Infrastructure.Settings.MaximumFileSizeBytes), auto-process @(SelectedRow.Infrastructure.Settings.AutoProcessOnUpload ? "enabled" : "disabled"), manual approval @(SelectedRow.Infrastructure.Settings.ManualApprovalRequiredBeforeIndexing ? "required" : "not required"), versioning @(SelectedRow.Infrastructure.Settings.VersioningEnabled ? "enabled" : "disabled")
                         </MudText>
                     }
                 }
@@ -300,6 +352,28 @@
         }
     }
 
+    private async Task RetryKnowledgeConfigurationSelectedAsync()
+    {
+        if (SelectedRow?.Infrastructure is null)
+            return;
+
+        try
+        {
+            _isProcessing = true;
+            await Api.RetryTenantKnowledgeConfigurationAsync(SelectedRow.Tenant.Id);
+            Snackbar.Add("Tenant knowledge configuration setup retried.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
     private static string GetInfrastructureLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
         => item?.Status switch
         {
@@ -320,11 +394,36 @@
             _ => Color.Default
         };
 
+    private static string GetKnowledgeConfigurationLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.KnowledgeConfigurationSetup?.Status switch
+        {
+            "Succeeded" => "Config ready",
+            "InProgress" => "Configuring",
+            "Failed" => "Config failed",
+            "Pending" => item.Status == "Succeeded" ? "Config queued" : "Waiting for infra",
+            _ => item is null ? "Waiting for infra" : item.Status == "Succeeded" ? "Not started" : "Waiting for infra"
+        };
+
+    private static Color GetKnowledgeConfigurationColor(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.KnowledgeConfigurationSetup?.Status switch
+        {
+            "Succeeded" => Color.Success,
+            "InProgress" => Color.Info,
+            "Failed" => Color.Error,
+            "Pending" => Color.Warning,
+            _ => item?.Status == "Succeeded" ? Color.Warning : Color.Default
+        };
+
+    private static string GetKnowledgeConfigurationUpdatedLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.KnowledgeConfigurationSetup?.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Waiting for provisioning";
+
     private static string GetLastUpdatedLabel(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
         => item?.UpdatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm") ?? "Not tracked";
 
     private static int GetPriority(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
-        => item?.Status switch
+        => item?.KnowledgeConfigurationSetup?.Status == "Failed"
+            ? 5
+            : item?.Status switch
         {
             "Failed" => 4,
             null => 3,
@@ -337,7 +436,6 @@
     {
         "database-schema" => "Database schema",
         "vector-store" => "Vector namespace",
-        "default-configuration" => "Knowledge defaults",
         _ => stepName
     };
 
@@ -348,6 +446,21 @@
         "Failed" => Color.Error,
         _ => Color.Warning
     };
+
+    private static bool CanRetryKnowledgeConfiguration(Callio.Admin.Services.TenantInfrastructureStatusItem? item)
+        => item?.Status == "Succeeded" && item.KnowledgeConfigurationSetup?.Status == "Failed";
+
+    private static string FormatFileSize(long bytes)
+    {
+        const long kilobyte = 1024;
+        const long megabyte = kilobyte * 1024;
+
+        return bytes >= megabyte
+            ? $"{bytes / (decimal)megabyte:0.#} MB"
+            : bytes >= kilobyte
+                ? $"{bytes / (decimal)kilobyte:0.#} KB"
+                : $"{bytes} B";
+    }
 
     private sealed record InfrastructureRow(
         Callio.Admin.Services.TenantItem Tenant,

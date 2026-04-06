@@ -1,3 +1,5 @@
+using Callio.Provisioning.Application.KnowledgeConfigurations;
+
 namespace Callio.Provisioning.Application;
 
 public record TenantApprovedProvisioningCommand(
@@ -19,7 +21,8 @@ public record TenantProvisioningStatusDto(
     DateTime UpdatedAtUtc,
     DateTime? LastStartedAtUtc,
     DateTime? LastCompletedAtUtc,
-    TenantKnowledgeBaseSettingsDto? Settings,
+    TenantKnowledgeConfigurationSetupStatusDto? KnowledgeConfigurationSetup,
+    TenantKnowledgeConfigurationSummaryDto? Settings,
     IReadOnlyList<TenantProvisioningStepDto> Steps);
 
 public record TenantProvisioningStepDto(
@@ -30,15 +33,3 @@ public record TenantProvisioningStepDto(
     string? LastError,
     DateTime? LastStartedAtUtc,
     DateTime? LastCompletedAtUtc);
-
-public record TenantKnowledgeBaseSettingsDto(
-    string DatabaseSchema,
-    string VectorStoreNamespace,
-    string EmbeddingProvider,
-    string EmbeddingModel,
-    int ChunkSize,
-    int ChunkOverlap,
-    int RetrievalTopK,
-    bool IngestionEnabled,
-    bool RetrievalEnabled,
-    DateTime UpdatedAtUtc);

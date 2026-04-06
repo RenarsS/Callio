@@ -22,7 +22,7 @@ public class TenantInfrastructureProvisioningTests
         provisioning.Status.Should().Be(ProvisioningStatus.Pending);
         provisioning.DatabaseSchema.Should().Be("tenant_42");
         provisioning.VectorStoreNamespace.Should().Be("tenant-42");
-        provisioning.Steps.Should().HaveCount(3);
+        provisioning.Steps.Should().HaveCount(2);
         provisioning.Steps.Select(x => x.Name).Should().ContainInOrder(TenantProvisioningSteps.Ordered);
         provisioning.Steps.Should().OnlyContain(x => x.Status == ProvisioningStepStatus.Pending);
     }
@@ -82,7 +82,7 @@ public class TenantInfrastructureProvisioningTests
             DateTime.UtcNow);
 
         provisioning.BeginAttempt(DateTime.UtcNow);
-        provisioning.MarkFailed(TenantProvisioningSteps.DefaultConfiguration, "Defaults failed.", DateTime.UtcNow);
+        provisioning.MarkFailed(TenantProvisioningSteps.VectorStore, "Vector setup failed.", DateTime.UtcNow);
 
         var completedAt = new DateTime(2026, 4, 6, 12, 0, 0, DateTimeKind.Utc);
         provisioning.MarkSucceeded(completedAt);

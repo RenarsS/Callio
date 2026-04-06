@@ -35,6 +35,9 @@ public class AdminApiClient(HttpClient httpClient)
     public Task<TenantInfrastructureStatusItem> ReprovisionTenantInfrastructureAsync(int tenantId, CancellationToken ct = default)
         => PostForJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}/reprovision", ct);
 
+    public Task<TenantInfrastructureStatusItem> RetryTenantKnowledgeConfigurationAsync(int tenantId, CancellationToken ct = default)
+        => PostForJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}/knowledge-configuration/retry", ct);
+
     public Task CreatePlanAsync(PlanUpsertRequest request, CancellationToken ct = default) => PostAsync("/api/dashboard/plans", request, ct);
     public Task UpdatePlanAsync(int id, PlanUpsertRequest request, CancellationToken ct = default) => PutAsync($"/api/dashboard/plans/{id}", request, ct);
     public Task DeletePlanAsync(int id, CancellationToken ct = default) => DeleteAsync($"/api/dashboard/plans/{id}", ct);
@@ -134,7 +137,8 @@ public record TenantInfrastructureStatusItem(
     DateTime UpdatedAtUtc,
     DateTime? LastStartedAtUtc,
     DateTime? LastCompletedAtUtc,
-    TenantKnowledgeBaseSettingsItem? Settings,
+    TenantKnowledgeConfigurationSetupStatusItem? KnowledgeConfigurationSetup,
+    TenantKnowledgeConfigurationSummaryItem? Settings,
     IReadOnlyList<TenantProvisioningStepItem> Steps);
 
 public record TenantProvisioningStepItem(
@@ -146,16 +150,34 @@ public record TenantProvisioningStepItem(
     DateTime? LastStartedAtUtc,
     DateTime? LastCompletedAtUtc);
 
-public record TenantKnowledgeBaseSettingsItem(
-    string DatabaseSchema,
-    string VectorStoreNamespace,
+public record TenantKnowledgeConfigurationSetupStatusItem(
+    int TenantId,
+    string Status,
+    int AttemptCount,
+    int? ActiveConfigurationId,
+    string? LastError,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc,
+    DateTime? LastStartedAtUtc,
+    DateTime? LastCompletedAtUtc);
+
+public record TenantKnowledgeConfigurationSummaryItem(
+    int Id,
+    int TenantId,
     string EmbeddingProvider,
     string EmbeddingModel,
+    string GenerationModel,
     int ChunkSize,
     int ChunkOverlap,
-    int RetrievalTopK,
-    bool IngestionEnabled,
-    bool RetrievalEnabled,
+    int TopKRetrievalCount,
+    int MaximumChunksInFinalContext,
+    decimal MinimumSimilarityThreshold,
+    IReadOnlyList<string> AllowedFileTypes,
+    long MaximumFileSizeBytes,
+    bool AutoProcessOnUpload,
+    bool ManualApprovalRequiredBeforeIndexing,
+    bool VersioningEnabled,
+    bool IsActive,
     DateTime UpdatedAtUtc);
 
 public record PlanItem(int Id, string Name, string Description, decimal BasePrice, string Currency, int BillingInterval, int AnchorDay, bool IsActive, IReadOnlyList<PlanQuotaItem> Quotas);

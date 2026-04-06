@@ -19,6 +19,7 @@ builder.Services.AddMassTransit(x =>
     x.SetKebabCaseEndpointNameFormatter();
     x.AddConsumer<TenantApprovedConsumer>();
     x.AddConsumer<TenantApprovedProvisioningConsumer>();
+    x.AddConsumer<TenantInfrastructureProvisioningSucceededConsumer>();
 
     var transport = builder.Configuration["MassTransit:Transport"];
     if (string.Equals(transport, "RabbitMq", StringComparison.OrdinalIgnoreCase))
@@ -85,8 +86,10 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
     var provisioningDb = scope.ServiceProvider.GetRequiredService<ProvisioningDbContext>();
+    var provisioningMetadataStoreProvisioner = scope.ServiceProvider.GetRequiredService<Callio.Provisioning.Infrastructure.Provisioners.IProvisioningMetadataStoreProvisioner>();
 
     await provisioningDb.Database.MigrateAsync();
+    await provisioningMetadataStoreProvisioner.EnsureCreatedAsync();
     await AdminDataSeeder.SeedAsync(db);
 }
 

@@ -139,7 +139,7 @@ namespace Callio.Provisioning.Infrastructure.Migrations
                     b.ToTable("TenantInfrastructureProvisioningSteps", "provisioning");
                 });
 
-            modelBuilder.Entity("Callio.Provisioning.Domain.TenantKnowledgeBaseSettings", b =>
+            modelBuilder.Entity("Callio.Provisioning.Domain.TenantKnowledgeConfigurationSetup", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -147,38 +147,29 @@ namespace Callio.Provisioning.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ChunkOverlap")
+                    b.Property<int?>("ActiveConfigurationId")
                         .HasColumnType("int");
 
-                    b.Property<int>("ChunkSize")
+                    b.Property<int>("AttemptCount")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("DatabaseSchema")
+                    b.Property<DateTime?>("LastCompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("LastStartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
-
-                    b.Property<string>("EmbeddingModel")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("EmbeddingProvider")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IngestionEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("RetrievalEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("RetrievalTopK")
-                        .HasColumnType("int");
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<int>("TenantId")
                         .HasColumnType("int");
@@ -186,17 +177,12 @@ namespace Callio.Provisioning.Infrastructure.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("VectorStoreNamespace")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId")
                         .IsUnique();
 
-                    b.ToTable("TenantKnowledgeBaseSettings", "provisioning");
+                    b.ToTable("TenantKnowledgeConfigurationSetups", "provisioning");
                 });
 
             modelBuilder.Entity("Callio.Provisioning.Domain.TenantInfrastructureProvisioningStep", b =>

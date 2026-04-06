@@ -1,4 +1,5 @@
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Provisioning.Application.KnowledgeConfigurations;
 using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.Provisioning.Application;
 using Callio.Provisioning.Domain;
@@ -6,8 +7,10 @@ using Callio.Provisioning.Domain.Enums;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
 using MassTransit;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Callio.Provisioning.Infrastructure.Services;
 
@@ -15,12 +18,20 @@ public class TenantProvisioningService(
     AdminDbContext adminDbContext,
     ProvisioningDbContext provisioningDbContext,
     ITenantDatabaseSchemaProvisioner tenantDatabaseSchemaProvisioner,
+    IProvisioningMetadataStoreProvisioner provisioningMetadataStoreProvisioner,
     ITenantVectorStoreProvisioner tenantVectorStoreProvisioner,
-    ITenantKnowledgeBaseSettingsProvisioner tenantKnowledgeBaseSettingsProvisioner,
+    ITenantKnowledgeConfigurationSetupService tenantKnowledgeConfigurationSetupService,
+    ITenantKnowledgeConfigurationRepository tenantKnowledgeConfigurationRepository,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     IPublishEndpoint publishEndpoint,
+    IOptions<Callio.Provisioning.Infrastructure.Options.TenantProvisioningOptions> options,
     ILogger<TenantProvisioningService> logger) : ITenantProvisioningService
 {
+    private readonly KnowledgeModelConstraintsDto _models = new(
+        options.Value.EmbeddingProvider,
+        options.Value.EmbeddingModel,
+        options.Value.GenerationModel);
+
     public async Task<TenantProvisioningStatusDto> HandleTenantApprovedAsync(
         TenantApprovedProvisioningCommand command,
         CancellationToken cancellationToken = default)
@@ -47,6 +58,8 @@ public class TenantProvisioningService(
             provisioning.RefreshSource(command.UserId, command.TenantRequestId, DateTime.UtcNow);
         }
 
+        await tenantKnowledgeConfigurationSetupService.EnsurePendingAsync(command.TenantId, cancellationToken);
+
         if (provisioning.Status is ProvisioningStatus.InProgress or ProvisioningStatus.Succeeded or ProvisioningStatus.Failed)
         {
             await provisioningDbContext.SaveChangesAsync(cancellationToken);
@@ -71,14 +84,14 @@ public class TenantProvisioningService(
             .Select(p => p.TenantId)
             .ToList();
 
-        var settingsLookup = await provisioningDbContext.TenantKnowledgeBaseSettings
-            .AsNoTracking()
-            .Where(x => tenantIds.Contains(x.TenantId))
-            .ToDictionaryAsync(x => x.TenantId, cancellationToken);
+        var setupLookup = await GetKnowledgeConfigurationSetupLookupAsync(tenantIds, cancellationToken);
+
+        var settingsLookup = await tenantKnowledgeConfigurationRepository.GetActiveByTenantIdsAsync(tenantIds, cancellationToken);
 
         return provisionings
             .Select(provisioning => Map(
                 provisioning,
+                setupLookup.GetValueOrDefault(provisioning.TenantId),
                 settingsLookup.GetValueOrDefault(provisioning.TenantId)))
             .ToList();
     }
@@ -93,11 +106,11 @@ public class TenantProvisioningService(
         if (provisioning is null)
             return null;
 
-        var settings = await provisioningDbContext.TenantKnowledgeBaseSettings
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.TenantId == provisioning.TenantId, cancellationToken);
+        var setup = await GetKnowledgeConfigurationSetupAsync(provisioning.TenantId, cancellationToken);
 
-        return Map(provisioning, settings);
+        var settings = await tenantKnowledgeConfigurationRepository.GetActiveAsync(provisioning.TenantId, cancellationToken);
+
+        return Map(provisioning, setup, settings);
     }
 
     public async Task<TenantProvisioningStatusDto?> RetryFailedAsync(int tenantId, CancellationToken cancellationToken = default)
@@ -206,6 +219,7 @@ public class TenantProvisioningService(
 
         provisioningDbContext.TenantInfrastructureProvisionings.Add(provisioning);
         await provisioningDbContext.SaveChangesAsync(cancellationToken);
+        await tenantKnowledgeConfigurationSetupService.EnsurePendingAsync(tenantId, cancellationToken);
 
         return provisioning;
     }
@@ -242,17 +256,61 @@ public class TenantProvisioningService(
             case TenantProvisioningSteps.VectorStore:
                 await tenantVectorStoreProvisioner.EnsureCreatedAsync(provisioning.TenantId, provisioning.VectorStoreNamespace, cancellationToken);
                 break;
-            case TenantProvisioningSteps.DefaultConfiguration:
-                await tenantKnowledgeBaseSettingsProvisioner.EnsureCreatedAsync(
-                    provisioning.TenantId,
-                    provisioning.DatabaseSchema,
-                    provisioning.VectorStoreNamespace,
-                    cancellationToken);
-                break;
             default:
                 throw new InvalidOperationException($"Provisioning step '{stepName}' is not supported.");
         }
     }
+
+    private async Task<IReadOnlyDictionary<int, TenantKnowledgeConfigurationSetup>> GetKnowledgeConfigurationSetupLookupAsync(
+        IReadOnlyCollection<int> tenantIds,
+        CancellationToken cancellationToken)
+    {
+        if (tenantIds.Count == 0)
+            return new Dictionary<int, TenantKnowledgeConfigurationSetup>();
+
+        try
+        {
+            await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
+
+            return await provisioningDbContext.TenantKnowledgeConfigurationSetups
+                .AsNoTracking()
+                .Where(x => tenantIds.Contains(x.TenantId))
+                .ToDictionaryAsync(x => x.TenantId, cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingKnowledgeConfigurationSetupTable(ex))
+        {
+            logger.LogWarning(
+                ex,
+                "Tenant knowledge configuration setup status table is missing. Returning provisioning status without configuration setup details.");
+
+            return new Dictionary<int, TenantKnowledgeConfigurationSetup>();
+        }
+    }
+
+    private async Task<TenantKnowledgeConfigurationSetup?> GetKnowledgeConfigurationSetupAsync(int tenantId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
+
+            return await provisioningDbContext.TenantKnowledgeConfigurationSetups
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId, cancellationToken);
+        }
+        catch (SqlException ex) when (IsMissingKnowledgeConfigurationSetupTable(ex))
+        {
+            logger.LogWarning(
+                ex,
+                "Tenant knowledge configuration setup status table is missing for tenant {TenantId}. Returning infrastructure status without configuration setup details.",
+                tenantId);
+
+            return null;
+        }
+    }
+
+    private static bool IsMissingKnowledgeConfigurationSetupTable(SqlException exception)
+        => exception.Number == 208
+           && exception.Message.Contains("TenantKnowledgeConfigurationSetups", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<string> GetStepNamesToExecute(
         TenantInfrastructureProvisioning provisioning,
@@ -338,9 +396,10 @@ public class TenantProvisioningService(
                 x.LastError))
             .ToList();
 
-    private static TenantProvisioningStatusDto Map(
+    private TenantProvisioningStatusDto Map(
         TenantInfrastructureProvisioning provisioning,
-        TenantKnowledgeBaseSettings? settings)
+        TenantKnowledgeConfigurationSetup? setup,
+        TenantKnowledgeConfiguration? settings)
         => new(
             provisioning.TenantId,
             provisioning.TenantRequestId,
@@ -355,19 +414,8 @@ public class TenantProvisioningService(
             provisioning.UpdatedAtUtc,
             provisioning.LastStartedAtUtc,
             provisioning.LastCompletedAtUtc,
-            settings is null
-                ? null
-                : new TenantKnowledgeBaseSettingsDto(
-                    settings.DatabaseSchema,
-                    settings.VectorStoreNamespace,
-                    settings.EmbeddingProvider,
-                    settings.EmbeddingModel,
-                    settings.ChunkSize,
-                    settings.ChunkOverlap,
-                    settings.RetrievalTopK,
-                    settings.IngestionEnabled,
-                    settings.RetrievalEnabled,
-                    settings.UpdatedAtUtc),
+            setup?.ToDto(),
+            settings?.ToSummaryDto(_models),
             provisioning.Steps
                 .OrderBy(x => x.Order)
                 .Select(x => new TenantProvisioningStepDto(
