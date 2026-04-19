@@ -1,8 +1,10 @@
 using Carter;
+using Callio.Admin.API.Modules;
 using Callio.Admin.Infrastructure;
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Infrastructure;
 using Callio.Identity.Infrastructure.Consumers;
+using Callio.Provisioning.API.Modules;
 using Callio.Provisioning.Infrastructure;
 using Callio.Provisioning.Infrastructure.Consumers;
 using Callio.Provisioning.Infrastructure.Persistence;
@@ -13,7 +15,18 @@ using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
-builder.Services.AddCarter();
+builder.Services.AddCarter(
+    null,
+    (CarterConfigurator configurator) =>
+{
+    configurator.WithModule<BillingModule>();
+    configurator.WithModule<TenantModule>();
+    configurator.WithModule<PortalKnowledgeSettingsModule>();
+    configurator.WithModule<TenantKnowledgeConfigurationModule>();
+    configurator.WithModule<TenantKnowledgeDashboardModule>();
+    configurator.WithModule<TenantKnowledgeDocumentModule>();
+    configurator.WithModule<TenantProvisioningModule>();
+});
 builder.Services.AddMassTransit(x =>
 {
     x.SetKebabCaseEndpointNameFormatter();

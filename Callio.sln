@@ -67,6 +67,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tools", "Tools", "{490E0445
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.DatabaseTool", "src\Tools\Callio.DatabaseTool\Callio.DatabaseTool.csproj", "{314B5EDF-C86F-4F06-8F97-2D120EC73EE9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Callio.Provisioning.API", "src\Provisioning\Callio.Provisioning.API\Callio.Provisioning.API.csproj", "{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -329,6 +331,18 @@ Global
 		{314B5EDF-C86F-4F06-8F97-2D120EC73EE9}.Release|x64.Build.0 = Release|Any CPU
 		{314B5EDF-C86F-4F06-8F97-2D120EC73EE9}.Release|x86.ActiveCfg = Release|Any CPU
 		{314B5EDF-C86F-4F06-8F97-2D120EC73EE9}.Release|x86.Build.0 = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|x64.Build.0 = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Debug|x86.Build.0 = Debug|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|x64.ActiveCfg = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|x64.Build.0 = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|x86.ActiveCfg = Release|Any CPU
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -362,5 +376,6 @@ Global
 		{2904854B-4CA1-46DD-B2B3-BE1B95BFEDB0} = {D8804E9C-7F76-E4B0-8F5B-9F04E49C5FBB}
 		{490E0445-BFDE-A1C1-BBD8-10E93E93A686} = {163AABAE-3B9A-4C4B-8F55-66865E54E32C}
 		{314B5EDF-C86F-4F06-8F97-2D120EC73EE9} = {490E0445-BFDE-A1C1-BBD8-10E93E93A686}
+		{6B03B5C1-52ED-4A38-92D9-0386B436B1F0} = {DA21AB33-3E8E-0F78-4769-C82BB817D8D0}
 	EndGlobalSection
 EndGlobal

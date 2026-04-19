@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 
-namespace Callio.API.Modules;
+namespace Callio.Provisioning.API.Modules;
 
 public class TenantKnowledgeDocumentModule : ICarterModule
 {
