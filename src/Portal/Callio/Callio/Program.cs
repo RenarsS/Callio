@@ -18,6 +18,10 @@ builder.Services.AddHttpClient<TenantKnowledgeSettingsApi>(client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5043");
 });
+builder.Services.AddHttpClient<TenantKnowledgeDocumentsApi>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ApiBaseUrl"] ?? "http://localhost:5043");
+});
 
 
 var app = builder.Build();

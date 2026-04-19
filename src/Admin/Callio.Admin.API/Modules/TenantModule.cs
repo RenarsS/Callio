@@ -2,6 +2,7 @@ using Carter;
 using Callio.Admin.API.Contracts.Tenants;
 using Callio.Admin.Application.Tenants;
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Provisioning.Application.KnowledgeDocuments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -110,5 +111,8 @@ public class TenantModule : ICarterModule
 
             return Results.Ok(tenants);
         });
+
+        dashboard.MapGet("/knowledge/overview", async (ITenantKnowledgeDashboardService service, CancellationToken ct) =>
+            Results.Ok(await service.GetOverviewAsync(ct)));
     }
 }

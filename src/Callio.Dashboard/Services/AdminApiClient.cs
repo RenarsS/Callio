@@ -17,6 +17,10 @@ public class AdminApiClient(HttpClient httpClient)
     public Task<TenantInfrastructureStatusItem?> GetTenantInfrastructureByTenantIdAsync(int tenantId, CancellationToken ct = default)
         => httpClient.GetFromJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}", ct);
 
+    public async Task<TenantKnowledgeDashboardOverviewItem> GetTenantKnowledgeOverviewAsync(CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<TenantKnowledgeDashboardOverviewItem>("/api/dashboard/knowledge/overview", ct)
+           ?? new TenantKnowledgeDashboardOverviewItem(0, 0, 0, 0, 0, 0, 0);
+
     public async Task<IReadOnlyList<PlanItem>> GetPlansAsync(CancellationToken ct = default)
         => await httpClient.GetFromJsonAsync<List<PlanItem>>("/api/dashboard/plans", ct) ?? [];
 
@@ -123,6 +127,14 @@ public record TenantRequestItem(
     string? SelectedPlanName);
 
 public record TenantItem(int Id, string Name, Guid? TenantCode, string ContactName, string ContactEmail, DateTime CreatedAt, DateTime ActivatedAt, DateTime? DeactivatedAt, string Status, string? CurrentPlanName, string? SubscriptionStatus);
+public record TenantKnowledgeDashboardOverviewItem(
+    int TenantCount,
+    int TenantsWithDocuments,
+    int TotalDocuments,
+    long TotalStorageBytes,
+    int ReadyDocuments,
+    int FailedDocuments,
+    int AwaitingApprovalDocuments);
 public record TenantInfrastructureStatusItem(
     int TenantId,
     int TenantRequestId,

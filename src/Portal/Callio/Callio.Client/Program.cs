@@ -12,5 +12,6 @@ builder.Services.AddScoped(sp => new HttpClient
 
 builder.Services.AddScoped<Callio.Client.Services.TenantRequestApi>();
 builder.Services.AddScoped<Callio.Client.Services.TenantKnowledgeSettingsApi>();
+builder.Services.AddScoped<Callio.Client.Services.TenantKnowledgeDocumentsApi>();
 
 await builder.Build().RunAsync();

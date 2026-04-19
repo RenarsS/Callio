@@ -15,13 +15,40 @@
             <div class="callio-stat-label">With active plan</div>
             <div class="callio-stat-value">@_tenants.Count(x => !string.IsNullOrWhiteSpace(x.CurrentPlanName))</div>
         </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Knowledge-ready tenants</div>
+            <div class="callio-stat-value">@_knowledgeOverview.TenantsWithDocuments</div>
+        </div>
+    </div>
+
+    <div class="callio-stat-row">
+        <div class="callio-stat">
+            <div class="callio-stat-label">Knowledge files</div>
+            <div class="callio-stat-value">@_knowledgeOverview.TotalDocuments</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Storage used</div>
+            <div class="callio-stat-value">@FormatFileSize(_knowledgeOverview.TotalStorageBytes)</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Ready</div>
+            <div class="callio-stat-value">@_knowledgeOverview.ReadyDocuments</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Needs review</div>
+            <div class="callio-stat-value">@_knowledgeOverview.AwaitingApprovalDocuments</div>
+        </div>
+        <div class="callio-stat">
+            <div class="callio-stat-label">Failed</div>
+            <div class="callio-stat-value">@_knowledgeOverview.FailedDocuments</div>
+        </div>
     </div>
 
     <MudPaper Class="callio-card pa-5" Elevation="0">
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
             <div>
                 <MudText Typo="Typo.h5">Tenant registry</MudText>
-                <MudText Typo="Typo.body2" Class="callio-lead">Approved tenants that are now part of the Callio platform.</MudText>
+                <MudText Typo="Typo.body2" Class="callio-lead">Approved tenants that are now part of the Callio platform, along with a quick read on their knowledge library footprint.</MudText>
             </div>
             <MudTextField @bind-Value="_search"
                           Placeholder="Search tenant, contact, or email"
@@ -77,6 +104,7 @@
 @code {
     private IReadOnlyList<Callio.Admin.Services.TenantItem> _tenants = [];
     private IReadOnlyList<Callio.Admin.Services.TenantInfrastructureStatusItem> _infrastructure = [];
+    private Callio.Admin.Services.TenantKnowledgeDashboardOverviewItem _knowledgeOverview = new(0, 0, 0, 0, 0, 0, 0);
     private string _search = string.Empty;
 
     private IEnumerable<Callio.Admin.Services.TenantItem> FilteredTenants =>
@@ -90,6 +118,7 @@
     {
         _tenants = await Api.GetTenantsAsync();
         _infrastructure = await Api.GetTenantInfrastructureAsync();
+        _knowledgeOverview = await Api.GetTenantKnowledgeOverviewAsync();
     }
 
     private Callio.Admin.Services.TenantInfrastructureStatusItem? GetProvisioning(int tenantId)
@@ -112,4 +141,18 @@
         "Pending" => "Pending",
         _ => "Not started"
     };
+
+    private static string FormatFileSize(long sizeBytes)
+    {
+        if (sizeBytes >= 1024L * 1024L * 1024L)
+            return $"{sizeBytes / (1024d * 1024d * 1024d):0.##} GB";
+
+        if (sizeBytes >= 1024L * 1024L)
+            return $"{sizeBytes / (1024d * 1024d):0.##} MB";
+
+        if (sizeBytes >= 1024L)
+            return $"{sizeBytes / 1024d:0.##} KB";
+
+        return $"{sizeBytes} B";
+    }
 }
