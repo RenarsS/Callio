@@ -4,11 +4,14 @@ using Callio.Admin.Domain.ValueObjects;
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure.Persistence;
-using Callio.Provisioning.Application.KnowledgeConfigurations;
+using Callio.Knowledge.Application.KnowledgeConfigurations;
+using Callio.Knowledge.Domain;
+using Callio.Knowledge.Domain.Enums;
+using Callio.Knowledge.Infrastructure.Persistence;
+using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.Domain;
 using Callio.Provisioning.Domain.Enums;
 using Callio.Provisioning.Infrastructure.Persistence;
-using Callio.Provisioning.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -19,11 +22,12 @@ namespace Callio.DatabaseTool;
 internal sealed class TestTenantRequestSeeder(
     AdminDbContext adminDbContext,
     AppIdentityDbContext identityDbContext,
+    KnowledgeDbContext knowledgeDbContext,
     ProvisioningDbContext provisioningDbContext,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     ITenantKnowledgeConfigurationService tenantKnowledgeConfigurationService,
     ITenantKnowledgeConfigurationSetupService tenantKnowledgeConfigurationSetupService,
-    IProvisioningMetadataStoreProvisioner provisioningMetadataStoreProvisioner,
+    IKnowledgeMetadataStoreProvisioner knowledgeMetadataStoreProvisioner,
     TenantSchemaMigrationRunner tenantSchemaMigrationRunner,
     ILogger<TestTenantRequestSeeder> logger)
 {
@@ -33,7 +37,7 @@ internal sealed class TestTenantRequestSeeder(
 
     public async Task SeedAsync(CancellationToken cancellationToken)
     {
-        await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
+        await knowledgeMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
 
         var plans = await adminDbContext.Plans
             .AsNoTracking()
@@ -642,13 +646,13 @@ internal sealed class TestTenantRequestSeeder(
             return;
         }
 
-        var setup = await provisioningDbContext.TenantKnowledgeConfigurationSetups
+        var setup = await knowledgeDbContext.TenantKnowledgeConfigurationSetups
             .FirstOrDefaultAsync(x => x.TenantId == tenantId, cancellationToken);
 
         if (setup is null)
         {
             setup = TenantKnowledgeConfigurationSetup.CreatePending(tenantId, DateTime.UtcNow.AddHours(-4));
-            provisioningDbContext.TenantKnowledgeConfigurationSetups.Add(setup);
+            knowledgeDbContext.TenantKnowledgeConfigurationSetups.Add(setup);
         }
 
         if (setup.Status != KnowledgeConfigurationSetupStatus.Failed)
@@ -659,7 +663,7 @@ internal sealed class TestTenantRequestSeeder(
                 "Seeded failure: knowledge configuration defaults could not be applied because the approval policy service was unavailable.",
                 startedAt.AddMinutes(12));
 
-            await provisioningDbContext.SaveChangesAsync(cancellationToken);
+            await knowledgeDbContext.SaveChangesAsync(cancellationToken);
         }
     }
 

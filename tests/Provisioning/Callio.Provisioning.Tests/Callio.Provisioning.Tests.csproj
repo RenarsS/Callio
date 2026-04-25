@@ -20,6 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\..\src\Knowledge\Callio.Knowledge.Domain\Callio.Knowledge.Domain.csproj" />
       <ProjectReference Include="..\..\..\src\Provisioning\Callio.Provisioning.Domain\Callio.Provisioning.Domain.csproj" />
     </ItemGroup>
 

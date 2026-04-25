@@ -1,6 +1,6 @@
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Persistence;
-using Callio.Provisioning.Infrastructure.Provisioners;
 using Microsoft.EntityFrameworkCore;
 using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.Extensions.Logging;

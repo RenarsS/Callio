@@ -7,6 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Knowledge\Callio.Knowledge.Application\Callio.Knowledge.Application.csproj" />
       <ProjectReference Include="..\Callio.Provisioning.Domain\Callio.Provisioning.Domain.csproj" />
     </ItemGroup>
 

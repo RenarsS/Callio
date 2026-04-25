@@ -1,5 +1,5 @@
 using Callio.Admin.Infrastructure.Persistence;
-using Callio.Provisioning.Application.KnowledgeConfigurations;
+using Callio.Knowledge.Application.KnowledgeConfigurations;
 using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.Provisioning.Application;
 using Callio.Provisioning.Domain;
@@ -7,10 +7,8 @@ using Callio.Provisioning.Domain.Enums;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
 using MassTransit;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Callio.Provisioning.Infrastructure.Services;
 
@@ -18,20 +16,13 @@ public class TenantProvisioningService(
     AdminDbContext adminDbContext,
     ProvisioningDbContext provisioningDbContext,
     ITenantDatabaseSchemaProvisioner tenantDatabaseSchemaProvisioner,
-    IProvisioningMetadataStoreProvisioner provisioningMetadataStoreProvisioner,
     ITenantVectorStoreProvisioner tenantVectorStoreProvisioner,
     ITenantKnowledgeConfigurationSetupService tenantKnowledgeConfigurationSetupService,
-    ITenantKnowledgeConfigurationRepository tenantKnowledgeConfigurationRepository,
+    ITenantKnowledgeConfigurationService tenantKnowledgeConfigurationService,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     IPublishEndpoint publishEndpoint,
-    IOptions<Callio.Provisioning.Infrastructure.Options.TenantProvisioningOptions> options,
     ILogger<TenantProvisioningService> logger) : ITenantProvisioningService
 {
-    private readonly KnowledgeModelConstraintsDto _models = new(
-        options.Value.EmbeddingProvider,
-        options.Value.EmbeddingModel,
-        options.Value.GenerationModel);
-
     public async Task<TenantProvisioningStatusDto> HandleTenantApprovedAsync(
         TenantApprovedProvisioningCommand command,
         CancellationToken cancellationToken = default)
@@ -86,7 +77,7 @@ public class TenantProvisioningService(
 
         var setupLookup = await GetKnowledgeConfigurationSetupLookupAsync(tenantIds, cancellationToken);
 
-        var settingsLookup = await tenantKnowledgeConfigurationRepository.GetActiveByTenantIdsAsync(tenantIds, cancellationToken);
+        var settingsLookup = await GetKnowledgeConfigurationLookupAsync(tenantIds, cancellationToken);
 
         return provisionings
             .Select(provisioning => Map(
@@ -106,9 +97,9 @@ public class TenantProvisioningService(
         if (provisioning is null)
             return null;
 
-        var setup = await GetKnowledgeConfigurationSetupAsync(provisioning.TenantId, cancellationToken);
+        var setup = await tenantKnowledgeConfigurationSetupService.GetStatusAsync(provisioning.TenantId, cancellationToken);
 
-        var settings = await tenantKnowledgeConfigurationRepository.GetActiveAsync(provisioning.TenantId, cancellationToken);
+        var settings = (await tenantKnowledgeConfigurationService.GetActiveAsync(provisioning.TenantId, cancellationToken))?.ToSummaryDto();
 
         return Map(provisioning, setup, settings);
     }
@@ -261,56 +252,41 @@ public class TenantProvisioningService(
         }
     }
 
-    private async Task<IReadOnlyDictionary<int, TenantKnowledgeConfigurationSetup>> GetKnowledgeConfigurationSetupLookupAsync(
+    private async Task<IReadOnlyDictionary<int, TenantKnowledgeConfigurationSetupStatusDto>> GetKnowledgeConfigurationSetupLookupAsync(
         IReadOnlyCollection<int> tenantIds,
         CancellationToken cancellationToken)
     {
         if (tenantIds.Count == 0)
-            return new Dictionary<int, TenantKnowledgeConfigurationSetup>();
+            return new Dictionary<int, TenantKnowledgeConfigurationSetupStatusDto>();
 
-        try
+        var results = new Dictionary<int, TenantKnowledgeConfigurationSetupStatusDto>();
+        foreach (var tenantId in tenantIds.Distinct())
         {
-            await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
-
-            return await provisioningDbContext.TenantKnowledgeConfigurationSetups
-                .AsNoTracking()
-                .Where(x => tenantIds.Contains(x.TenantId))
-                .ToDictionaryAsync(x => x.TenantId, cancellationToken);
+            var setup = await tenantKnowledgeConfigurationSetupService.GetStatusAsync(tenantId, cancellationToken);
+            if (setup is not null)
+                results[tenantId] = setup;
         }
-        catch (SqlException ex) when (IsMissingKnowledgeConfigurationSetupTable(ex))
-        {
-            logger.LogWarning(
-                ex,
-                "Tenant knowledge configuration setup status table is missing. Returning provisioning status without configuration setup details.");
 
-            return new Dictionary<int, TenantKnowledgeConfigurationSetup>();
-        }
+        return results;
     }
 
-    private async Task<TenantKnowledgeConfigurationSetup?> GetKnowledgeConfigurationSetupAsync(int tenantId, CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<int, TenantKnowledgeConfigurationSummaryDto>> GetKnowledgeConfigurationLookupAsync(
+        IReadOnlyCollection<int> tenantIds,
+        CancellationToken cancellationToken)
     {
-        try
-        {
-            await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
+        if (tenantIds.Count == 0)
+            return new Dictionary<int, TenantKnowledgeConfigurationSummaryDto>();
 
-            return await provisioningDbContext.TenantKnowledgeConfigurationSetups
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.TenantId == tenantId, cancellationToken);
-        }
-        catch (SqlException ex) when (IsMissingKnowledgeConfigurationSetupTable(ex))
+        var results = new Dictionary<int, TenantKnowledgeConfigurationSummaryDto>();
+        foreach (var tenantId in tenantIds.Distinct())
         {
-            logger.LogWarning(
-                ex,
-                "Tenant knowledge configuration setup status table is missing for tenant {TenantId}. Returning infrastructure status without configuration setup details.",
-                tenantId);
-
-            return null;
+            var configuration = await tenantKnowledgeConfigurationService.GetActiveAsync(tenantId, cancellationToken);
+            if (configuration is not null)
+                results[tenantId] = configuration.ToSummaryDto();
         }
+
+        return results;
     }
-
-    private static bool IsMissingKnowledgeConfigurationSetupTable(SqlException exception)
-        => exception.Number == 208
-           && exception.Message.Contains("TenantKnowledgeConfigurationSetups", StringComparison.OrdinalIgnoreCase);
 
     private static IReadOnlyList<string> GetStepNamesToExecute(
         TenantInfrastructureProvisioning provisioning,
@@ -398,8 +374,8 @@ public class TenantProvisioningService(
 
     private TenantProvisioningStatusDto Map(
         TenantInfrastructureProvisioning provisioning,
-        TenantKnowledgeConfigurationSetup? setup,
-        TenantKnowledgeConfiguration? settings)
+        TenantKnowledgeConfigurationSetupStatusDto? setup,
+        TenantKnowledgeConfigurationSummaryDto? settings)
         => new(
             provisioning.TenantId,
             provisioning.TenantRequestId,
@@ -414,8 +390,8 @@ public class TenantProvisioningService(
             provisioning.UpdatedAtUtc,
             provisioning.LastStartedAtUtc,
             provisioning.LastCompletedAtUtc,
-            setup?.ToDto(),
-            settings?.ToSummaryDto(_models),
+            setup,
+            settings,
             provisioning.Steps
                 .OrderBy(x => x.Order)
                 .Select(x => new TenantProvisioningStepDto(

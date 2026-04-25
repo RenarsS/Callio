@@ -7,7 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Azure.Storage.Blobs" Version="12.25.1" />
       <PackageReference Include="MassTransit" Version="8.5.2" />
       <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.3" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.3">
@@ -22,6 +21,7 @@
     <ItemGroup>
       <ProjectReference Include="..\..\Admin\Callio.Admin.Infrastructure\Callio.Admin.Infrastructure.csproj" />
       <ProjectReference Include="..\..\Core\Callio.Core.Infrastructure\Callio.Core.Infrastructure.csproj" />
+      <ProjectReference Include="..\..\Knowledge\Callio.Knowledge.Application\Callio.Knowledge.Application.csproj" />
       <ProjectReference Include="..\Callio.Provisioning.Application\Callio.Provisioning.Application.csproj" />
       <ProjectReference Include="..\Callio.Provisioning.Domain\Callio.Provisioning.Domain.csproj" />
     </ItemGroup>

@@ -139,52 +139,6 @@ namespace Callio.Provisioning.Infrastructure.Migrations
                     b.ToTable("TenantInfrastructureProvisioningSteps", "provisioning");
                 });
 
-            modelBuilder.Entity("Callio.Provisioning.Domain.TenantKnowledgeConfigurationSetup", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int?>("ActiveConfigurationId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("AttemptCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("LastCompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LastError")
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<DateTime?>("LastStartedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<int>("TenantId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TenantId")
-                        .IsUnique();
-
-                    b.ToTable("TenantKnowledgeConfigurationSetups", "provisioning");
-                });
-
             modelBuilder.Entity("Callio.Provisioning.Domain.TenantInfrastructureProvisioningStep", b =>
                 {
                     b.HasOne("Callio.Provisioning.Domain.TenantInfrastructureProvisioning", null)

@@ -1,6 +1,5 @@
 using Carter;
 using Callio.Provisioning.Application;
-using Callio.Provisioning.Application.KnowledgeConfigurations;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -33,23 +32,6 @@ public class TenantProvisioningModule : ICarterModule
         {
             var result = await service.ReprovisionAsync(tenantId, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
-        });
-
-        group.MapPost("/{tenantId:int}/knowledge-configuration/retry", async (
-            int tenantId,
-            ITenantKnowledgeConfigurationSetupService setupService,
-            ITenantProvisioningService provisioningService,
-            CancellationToken cancellationToken) =>
-        {
-            var setupResult = await setupService.RetryAsync(
-                new RunTenantKnowledgeConfigurationSetupCommand(tenantId),
-                cancellationToken);
-
-            if (setupResult is null)
-                return Results.BadRequest("Tenant knowledge configuration setup can only be retried after infrastructure provisioning succeeds.");
-
-            var status = await provisioningService.GetStatusAsync(tenantId, cancellationToken);
-            return status is null ? Results.NotFound() : Results.Ok(status);
         });
     }
 }

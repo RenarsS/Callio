@@ -1,12 +1,8 @@
 using Callio.Provisioning.Application;
-using Callio.Provisioning.Application.KnowledgeConfigurations;
-using Callio.Provisioning.Application.KnowledgeDocuments;
 using Callio.Provisioning.Infrastructure.Options;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
-using Callio.Provisioning.Infrastructure.Repositories;
 using Callio.Provisioning.Infrastructure.Services;
-using Callio.Provisioning.Infrastructure.Services.KnowledgeDocuments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,30 +14,11 @@ public static class ProvisioningModuleExtensions
     public static IServiceCollection AddProvisioningModule(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<TenantProvisioningOptions>(configuration.GetSection(TenantProvisioningOptions.SectionName));
-        services.Configure<TenantKnowledgeIngestionOptions>(configuration.GetSection(TenantKnowledgeIngestionOptions.SectionName));
 
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();
-        services.AddScoped<IProvisioningMetadataStoreProvisioner, SqlServerProvisioningMetadataStoreProvisioner>();
         services.AddScoped<ITenantVectorStoreProvisioner, DevelopmentTenantVectorStoreProvisioner>();
-        services.AddScoped<ITenantKnowledgeConfigurationStoreProvisioner, SqlServerTenantKnowledgeConfigurationStoreProvisioner>();
-        services.AddScoped<ITenantKnowledgeDocumentStoreProvisioner, SqlServerTenantKnowledgeDocumentStoreProvisioner>();
-        services.AddScoped<ITenantKnowledgeConfigurationRepository, TenantKnowledgeConfigurationRepository>();
-        services.AddScoped<ITenantKnowledgeDocumentRepository, TenantKnowledgeDocumentRepository>();
-        services.AddScoped<ITenantKnowledgeConfigurationService, TenantKnowledgeConfigurationService>();
-        services.AddScoped<ITenantKnowledgeConfigurationSetupService, TenantKnowledgeConfigurationSetupService>();
-        services.AddScoped<ITenantKnowledgeDocumentService, TenantKnowledgeDocumentService>();
-        services.AddScoped<ITenantKnowledgeDashboardService, TenantKnowledgeDashboardService>();
         services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();
-        services.AddSingleton<ITenantKnowledgeConfigurationDbContextFactory, TenantKnowledgeConfigurationDbContextFactory>();
-        services.AddSingleton<ITenantKnowledgeDocumentDbContextFactory, TenantKnowledgeDocumentDbContextFactory>();
-        services.AddScoped<FileSystemTenantKnowledgeBlobStorage>();
-        services.AddScoped<AzureBlobTenantKnowledgeBlobStorage>();
-        services.AddScoped<ITenantKnowledgeBlobStorage, TenantKnowledgeBlobStorage>();
-        services.AddScoped<DeterministicTenantEmbeddingGenerator>();
-        services.AddScoped<ITenantEmbeddingGenerator, TenantEmbeddingGenerator>();
-        services.AddScoped<ITenantKnowledgeTextExtractor, TenantKnowledgeTextExtractor>();
-        services.AddScoped<AzureOpenAiTenantEmbeddingGenerator>();
 
         services.AddDbContext<ProvisioningDbContext>(options =>
             options.UseSqlServer(

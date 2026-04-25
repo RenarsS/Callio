@@ -1,4 +1,4 @@
-using Callio.Provisioning.Application.KnowledgeConfigurations;
+using Callio.Knowledge.Application.KnowledgeConfigurations;
 
 namespace Callio.Provisioning.Application;
 

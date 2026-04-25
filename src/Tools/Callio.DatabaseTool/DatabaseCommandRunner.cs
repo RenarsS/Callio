@@ -1,7 +1,7 @@
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Infrastructure.Persistence;
+using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Persistence;
-using Callio.Provisioning.Infrastructure.Provisioners;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -11,7 +11,7 @@ internal sealed class DatabaseCommandRunner(
     AdminDbContext adminDbContext,
     AppIdentityDbContext identityDbContext,
     ProvisioningDbContext provisioningDbContext,
-    IProvisioningMetadataStoreProvisioner provisioningMetadataStoreProvisioner,
+    IKnowledgeMetadataStoreProvisioner knowledgeMetadataStoreProvisioner,
     TenantSchemaMigrationRunner tenantSchemaMigrationRunner,
     TestTenantRequestSeeder testTenantRequestSeeder,
     ILogger<DatabaseCommandRunner> logger)
@@ -44,8 +44,8 @@ internal sealed class DatabaseCommandRunner(
         logger.LogInformation("Applying provisioning schema migrations.");
         await provisioningDbContext.Database.MigrateAsync(cancellationToken);
 
-        logger.LogInformation("Ensuring provisioning metadata compatibility objects.");
-        await provisioningMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
+        logger.LogInformation("Ensuring knowledge metadata compatibility objects.");
+        await knowledgeMetadataStoreProvisioner.EnsureCreatedAsync(cancellationToken);
     }
 
     private async Task MigrateTenantDatabasesAsync(CancellationToken cancellationToken)

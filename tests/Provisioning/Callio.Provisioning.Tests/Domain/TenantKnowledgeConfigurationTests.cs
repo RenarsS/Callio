@@ -1,4 +1,4 @@
-using Callio.Provisioning.Domain;
+using Callio.Knowledge.Domain;
 using FluentAssertions;
 
 namespace Callio.Provisioning.Tests.Domain;

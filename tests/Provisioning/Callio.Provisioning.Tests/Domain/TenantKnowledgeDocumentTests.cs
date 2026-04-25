@@ -1,5 +1,5 @@
-using Callio.Provisioning.Domain;
-using Callio.Provisioning.Domain.Enums;
+using Callio.Knowledge.Domain;
+using Callio.Knowledge.Domain.Enums;
 using FluentAssertions;
 
 namespace Callio.Provisioning.Tests.Domain;

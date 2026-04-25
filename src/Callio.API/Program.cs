@@ -2,8 +2,14 @@ using Carter;
 using Callio.Admin.API.Modules;
 using Callio.Admin.Infrastructure;
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Generation.API.Modules;
+using Callio.Generation.Infrastructure;
 using Callio.Identity.Infrastructure;
 using Callio.Identity.Infrastructure.Consumers;
+using Callio.Knowledge.API.Modules;
+using Callio.Knowledge.Infrastructure;
+using Callio.Knowledge.Infrastructure.Consumers;
+using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.API.Modules;
 using Callio.Provisioning.Infrastructure;
 using Callio.Provisioning.Infrastructure.Consumers;
@@ -23,8 +29,10 @@ builder.Services.AddCarter(
     configurator.WithModule<TenantModule>();
     configurator.WithModule<PortalKnowledgeSettingsModule>();
     configurator.WithModule<TenantKnowledgeConfigurationModule>();
+    configurator.WithModule<TenantKnowledgeConfigurationSetupModule>();
     configurator.WithModule<TenantKnowledgeDashboardModule>();
     configurator.WithModule<TenantKnowledgeDocumentModule>();
+    configurator.WithModule<TenantGenerationModule>();
     configurator.WithModule<TenantProvisioningModule>();
 });
 builder.Services.AddMassTransit(x =>
@@ -81,6 +89,8 @@ builder.Services.AddMassTransit(x =>
 builder.Services.AddAdminModule(builder.Configuration);
 builder.Services.AddIdentityModule(builder.Configuration);
 builder.Services.AddProvisioningModule(builder.Configuration);
+builder.Services.AddKnowledgeModule(builder.Configuration);
+builder.Services.AddGenerationModule(builder.Configuration);
 
 builder.Services.AddCors(options =>
 {
@@ -99,10 +109,10 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
     var provisioningDb = scope.ServiceProvider.GetRequiredService<ProvisioningDbContext>();
-    var provisioningMetadataStoreProvisioner = scope.ServiceProvider.GetRequiredService<Callio.Provisioning.Infrastructure.Provisioners.IProvisioningMetadataStoreProvisioner>();
+    var knowledgeMetadataStoreProvisioner = scope.ServiceProvider.GetRequiredService<IKnowledgeMetadataStoreProvisioner>();
 
     await provisioningDb.Database.MigrateAsync();
-    await provisioningMetadataStoreProvisioner.EnsureCreatedAsync();
+    await knowledgeMetadataStoreProvisioner.EnsureCreatedAsync();
     await AdminDataSeeder.SeedAsync(db);
 }
 

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Carter" Version="10.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\Provisioning\Callio.Provisioning.Application\Callio.Provisioning.Application.csproj" />
+      <ProjectReference Include="..\Callio.Knowledge.Application\Callio.Knowledge.Application.csproj" />
+      <ProjectReference Include="..\Callio.Knowledge.Domain\Callio.Knowledge.Domain.csproj" />
+    </ItemGroup>
+
+</Project>

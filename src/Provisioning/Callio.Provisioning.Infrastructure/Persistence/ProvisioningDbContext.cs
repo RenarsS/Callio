@@ -9,8 +9,6 @@ public class ProvisioningDbContext(DbContextOptions<ProvisioningDbContext> optio
 
     public DbSet<TenantInfrastructureProvisioningStep> TenantInfrastructureProvisioningSteps { get; set; }
 
-    public DbSet<TenantKnowledgeConfigurationSetup> TenantKnowledgeConfigurationSetups { get; set; }
-
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -42,12 +40,5 @@ public class ProvisioningDbContext(DbContextOptions<ProvisioningDbContext> optio
             builder.HasIndex(x => new { x.TenantInfrastructureProvisioningId, x.Name }).IsUnique();
         });
 
-        modelBuilder.Entity<TenantKnowledgeConfigurationSetup>(builder =>
-        {
-            builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
-            builder.Property(x => x.LastError).HasMaxLength(4000);
-
-            builder.HasIndex(x => x.TenantId).IsUnique();
-        });
     }
 }
