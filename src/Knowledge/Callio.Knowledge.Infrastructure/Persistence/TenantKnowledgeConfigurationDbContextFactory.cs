@@ -1,19 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Configuration;
+using Callio.Provisioning.Infrastructure.Services;
 
 namespace Callio.Knowledge.Infrastructure.Persistence;
 
-public class TenantKnowledgeConfigurationDbContextFactory(IConfiguration configuration) : ITenantKnowledgeConfigurationDbContextFactory
+public class TenantKnowledgeConfigurationDbContextFactory(
+    ITenantDatabaseConnectionStringFactory connectionStringFactory) : ITenantKnowledgeConfigurationDbContextFactory
 {
-    private readonly string _connectionString = configuration.GetConnectionString("CallioTenantsDb")
-        ?? throw new InvalidOperationException("A CallioTenantsDb connection string is required for tenant knowledge configuration storage.");
-
     public TenantKnowledgeConfigurationDbContext Create(string schemaName)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TenantKnowledgeConfigurationDbContext>();
-        optionsBuilder.UseSqlServer(_connectionString);
-        optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantKnowledgeConfigurationModelCacheKeyFactory>();
+        optionsBuilder
+            .UseSqlServer(connectionStringFactory.CreateTenantConnectionString())
+            .ReplaceService<IModelCacheKeyFactory, TenantKnowledgeConfigurationModelCacheKeyFactory>();
 
         return new TenantKnowledgeConfigurationDbContext(optionsBuilder.Options, schemaName);
     }

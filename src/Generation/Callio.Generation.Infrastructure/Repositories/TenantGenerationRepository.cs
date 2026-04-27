@@ -14,6 +14,65 @@ public class TenantGenerationRepository(
     ITenantGenerationDbContextFactory dbContextFactory,
     ITenantGenerationStoreProvisioner storeProvisioner) : ITenantGenerationRepository
 {
+    public async Task<IReadOnlyList<TenantGenerationPromptTemplate>> GetPromptTemplatesAsync(
+        int tenantId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(tenantId, cancellationToken);
+
+        return await context.PromptTemplates
+            .AsNoTracking()
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ThenBy(x => x.Key)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<TenantGenerationPromptTemplate?> GetPromptTemplateByIdAsync(
+        int tenantId,
+        int promptTemplateId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(tenantId, cancellationToken);
+
+        return await context.PromptTemplates
+            .FirstOrDefaultAsync(
+                x => x.TenantId == tenantId && x.Id == promptTemplateId,
+                cancellationToken);
+    }
+
+    public async Task<TenantGenerationPromptTemplate?> GetPromptTemplateByKeyAsync(
+        int tenantId,
+        string promptKey,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(tenantId, cancellationToken);
+
+        return await context.PromptTemplates
+            .FirstOrDefaultAsync(
+                x => x.TenantId == tenantId && x.Key == promptKey,
+                cancellationToken);
+    }
+
+    public async Task<TenantGenerationPromptTemplate> AddPromptTemplateAsync(
+        TenantGenerationPromptTemplate promptTemplate,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(promptTemplate.TenantId, cancellationToken);
+        context.PromptTemplates.Add(promptTemplate);
+        await context.SaveChangesAsync(cancellationToken);
+        return promptTemplate;
+    }
+
+    public async Task<TenantGenerationPromptTemplate> UpdatePromptTemplateAsync(
+        TenantGenerationPromptTemplate promptTemplate,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(promptTemplate.TenantId, cancellationToken);
+        context.PromptTemplates.Update(promptTemplate);
+        await context.SaveChangesAsync(cancellationToken);
+        return promptTemplate;
+    }
+
     public async Task<TenantGenerationResponse> AddAsync(
         TenantGenerationResponse response,
         CancellationToken cancellationToken = default)

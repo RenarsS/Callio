@@ -5,12 +5,12 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Callio.Knowledge.Infrastructure.Persistence;
 
-public class TenantKnowledgeCategoryEntityConfiguration(string schemaName)
+public class TenantKnowledgeCategoryEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeCategory>
 {
     public void Configure(EntityTypeBuilder<TenantKnowledgeCategory> builder)
     {
-        builder.ToTable(TenantKnowledgeDocumentDbContext.CategoriesTableName, schemaName);
+        builder.ToTable(TenantKnowledgeDocumentDbContext.CategoriesTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.TenantId).IsRequired();
@@ -24,12 +24,12 @@ public class TenantKnowledgeCategoryEntityConfiguration(string schemaName)
     }
 }
 
-public class TenantKnowledgeTagEntityConfiguration(string schemaName)
+public class TenantKnowledgeTagEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeTag>
 {
     public void Configure(EntityTypeBuilder<TenantKnowledgeTag> builder)
     {
-        builder.ToTable(TenantKnowledgeDocumentDbContext.TagsTableName, schemaName);
+        builder.ToTable(TenantKnowledgeDocumentDbContext.TagsTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.TenantId).IsRequired();
@@ -42,12 +42,12 @@ public class TenantKnowledgeTagEntityConfiguration(string schemaName)
     }
 }
 
-public class TenantKnowledgeDocumentEntityConfiguration(string schemaName)
+public class TenantKnowledgeDocumentEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeDocument>
 {
     public void Configure(EntityTypeBuilder<TenantKnowledgeDocument> builder)
     {
-        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentsTableName, schemaName);
+        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentsTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.DocumentKey).IsRequired();
@@ -84,12 +84,12 @@ public class TenantKnowledgeDocumentEntityConfiguration(string schemaName)
     }
 }
 
-public class TenantKnowledgeDocumentTagEntityConfiguration(string schemaName)
+public class TenantKnowledgeDocumentTagEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeDocumentTag>
 {
     public void Configure(EntityTypeBuilder<TenantKnowledgeDocumentTag> builder)
     {
-        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentTagsTableName, schemaName);
+        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentTagsTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.CreatedAtUtc).IsRequired();
@@ -108,12 +108,12 @@ public class TenantKnowledgeDocumentTagEntityConfiguration(string schemaName)
     }
 }
 
-public class TenantKnowledgeDocumentChunkEntityConfiguration(string schemaName)
+public class TenantKnowledgeDocumentChunkEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeDocumentChunk>
 {
     public void Configure(EntityTypeBuilder<TenantKnowledgeDocumentChunk> builder)
     {
-        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentChunksTableName, schemaName);
+        builder.ToTable(TenantKnowledgeDocumentDbContext.DocumentChunksTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ChunkIndex).IsRequired();

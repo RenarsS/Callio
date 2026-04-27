@@ -1,19 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.Extensions.Configuration;
+using Callio.Provisioning.Infrastructure.Services;
 
 namespace Callio.Generation.Infrastructure.Persistence;
 
-public class TenantGenerationDbContextFactory(IConfiguration configuration) : ITenantGenerationDbContextFactory
+public class TenantGenerationDbContextFactory(
+    ITenantDatabaseConnectionStringFactory connectionStringFactory) : ITenantGenerationDbContextFactory
 {
-    private readonly string _connectionString = configuration.GetConnectionString("CallioTenantsDb")
-        ?? throw new InvalidOperationException("A CallioTenantsDb connection string is required for tenant generation storage.");
-
     public TenantGenerationDbContext Create(string schemaName)
     {
         var optionsBuilder = new DbContextOptionsBuilder<TenantGenerationDbContext>();
-        optionsBuilder.UseSqlServer(_connectionString);
-        optionsBuilder.ReplaceService<IModelCacheKeyFactory, TenantGenerationModelCacheKeyFactory>();
+        optionsBuilder
+            .UseSqlServer(connectionStringFactory.CreateTenantConnectionString())
+            .ReplaceService<IModelCacheKeyFactory, TenantGenerationModelCacheKeyFactory>();
 
         return new TenantGenerationDbContext(optionsBuilder.Options, schemaName);
     }

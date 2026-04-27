@@ -1,292 +1,209 @@
 @page "/tenant-knowledge-settings"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @using Callio.Client.Models
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
 @inject Callio.Client.Services.TenantKnowledgeSettingsApi TenantKnowledgeSettingsApi
+@inject NavigationManager Navigation
 
 <PageTitle>Knowledge settings</PageTitle>
 
-<MudGrid Spacing="3">
-    <MudItem xs="12" lg="4">
-        <MudStack Spacing="3">
-            <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
-                <div class="callio-kicker">Tenant knowledge controls</div>
-                <MudText Typo="Typo.h4" GutterBottom="true">Tune how Callio retrieves, filters, and prepares knowledge.</MudText>
-                <MudText Typo="Typo.body2" Class="callio-lead">
-                    Configure the prompts, chunking, retrieval depth, similarity threshold, and file ingestion rules that shape your tenant's RAG behavior.
-                </MudText>
-            </MudPaper>
+@if (_loadingSession)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else if (_tenantId is null)
+{
+    <TenantWorkspaceNav Session="_session" />
 
-            <MudPaper Class="callio-card pa-5" Elevation="0">
-                <MudText Typo="Typo.h6" GutterBottom="true">Load tenant settings</MudText>
-                <MudText Typo="Typo.body2" Class="callio-lead">
-                    Enter the approved tenant ID from the request status page, then load the active knowledge configuration.
-                </MudText>
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudText Typo="Typo.h5" GutterBottom="true">Knowledge settings unlock after tenant approval</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            This account has not been linked to an approved tenant yet. Check provisioning to follow approval and infrastructure progress.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-4">
+            Open provisioning
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
 
-                <MudNumericField @bind-Value="_lookupTenantId"
-                                 Label="Tenant ID"
-                                 Variant="Variant.Outlined"
-                                 Min="1"
-                                 Immediate="true"
-                                 Class="mt-4" />
-
-                <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               ButtonType="ButtonType.Button"
-                               Disabled="@(_loading || _lookupTenantId <= 0)"
-                               OnClick="LoadAsync">
-                        @(_loading ? "Loading..." : "Load settings")
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-request-status">Find tenant ID</MudButton>
-                </MudStack>
-            </MudPaper>
-
-            @if (_setupStatus is not null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                        <MudText Typo="Typo.h6">Provisioning setup</MudText>
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Color="@GetSetupStatusColor(_setupStatus.Status)"
-                                 Variant="Variant.Filled">
-                            @_setupStatus.Status
-                        </MudChip>
-                    </MudStack>
-
-                    <MudText Typo="Typo.body2" Class="callio-lead mt-3">
-                        @GetSetupStatusMessage(_setupStatus)
-                    </MudText>
-
-                    <div class="callio-detail-list mt-4">
-                        <div class="callio-detail-item">
-                            <span>Attempts</span>
-                            <strong>@_setupStatus.AttemptCount</strong>
-                        </div>
-                        @if (_setupStatus.ActiveConfigurationId.HasValue)
-                        {
-                            <div class="callio-detail-item">
-                                <span>Active configuration</span>
-                                <strong>#@_setupStatus.ActiveConfigurationId.Value</strong>
-                            </div>
-                        }
-                        @if (_setupStatus.LastCompletedAtUtc.HasValue)
-                        {
-                            <div class="callio-detail-item">
-                                <span>Last completed</span>
-                                <strong>@FormatUtc(_setupStatus.LastCompletedAtUtc.Value)</strong>
-                            </div>
-                        }
-                    </div>
-
-                    @if (!string.IsNullOrWhiteSpace(_setupStatus.LastError))
-                    {
-                        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">
-                            @_setupStatus.LastError
-                        </MudAlert>
-                    }
-                </MudPaper>
-            }
-
-            @if (_settings is not null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h6" GutterBottom="true">Fixed model constraints</MudText>
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                    <div class="callio-kicker">Tenant knowledge controls</div>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Tune how Callio retrieves, filters, and prepares knowledge.</MudText>
                     <MudText Typo="Typo.body2" Class="callio-lead">
-                        These models are currently enforced by Callio for this tenant configuration.
-                    </MudText>
-
-                    <div class="callio-detail-list mt-4">
-                        <div class="callio-detail-item">
-                            <span>Embedding provider</span>
-                            <strong>@_settings.Models.EmbeddingProvider</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Embedding model</span>
-                            <strong>@_settings.Models.EmbeddingModel</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Generation model</span>
-                            <strong>@_settings.Models.GenerationModel</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Last saved</span>
-                            <strong>@FormatUtc(_settings.UpdatedAtUtc)</strong>
-                        </div>
-                    </div>
-                </MudPaper>
-            }
-        </MudStack>
-    </MudItem>
-
-    <MudItem xs="12" lg="8">
-        <MudStack Spacing="3">
-            @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
-            {
-                <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
-            }
-
-            @if (_settings is null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h5" GutterBottom="true">No tenant selected yet</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">
-                        Load an approved tenant to review the active knowledge configuration. If the tenant does not have a saved configuration yet, the portal will initialize the default one for you automatically.
+                        These settings are stored in the tenant database and shape the RAG behavior used by your tenant workspace.
                     </MudText>
                 </MudPaper>
-            }
-            else
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h5" GutterBottom="true">Assistant prompts</MudText>
-                    <MudText Typo="Typo.body2" Class="callio-lead">
-                        Set the system behavior and the retrieval-specific instruction prompt that the RAG pipeline uses for this tenant.
-                    </MudText>
 
-                    <MudGrid Class="mt-2">
-                        <MudItem xs="12">
-                            <MudTextField @bind-Value="_model.SystemPrompt"
-                                          Label="System prompt"
-                                          Variant="Variant.Outlined"
-                                          Lines="6"
-                                          Required="true" />
-                        </MudItem>
-                        <MudItem xs="12">
-                            <MudTextField @bind-Value="_model.AssistantInstructionPrompt"
-                                          Label="Assistant instruction prompt"
-                                          Variant="Variant.Outlined"
-                                          Lines="5"
-                                          Required="true" />
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h5" GutterBottom="true">Retrieval behavior</MudText>
-                    <MudGrid>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField @bind-Value="_model.ChunkSize"
-                                             Label="Chunk size"
-                                             Variant="Variant.Outlined"
-                                             Min="1" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField @bind-Value="_model.ChunkOverlap"
-                                             Label="Chunk overlap"
-                                             Variant="Variant.Outlined"
-                                             Min="0" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField @bind-Value="_model.TopKRetrievalCount"
-                                             Label="Top K retrieval count"
-                                             Variant="Variant.Outlined"
-                                             Min="1" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField @bind-Value="_model.MaximumChunksInFinalContext"
-                                             Label="Maximum chunks in final context"
-                                             Variant="Variant.Outlined"
-                                             Min="1" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField T="decimal"
-                                             @bind-Value="_model.MinimumSimilarityThreshold"
-                                             Label="Minimum similarity threshold"
-                                             Variant="Variant.Outlined"
-                                             Min="@(0m)"
-                                             Max="@(1m)"
-                                             Step="@(0.01m)" />
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h5" GutterBottom="true">File intake and processing</MudText>
-                    <MudGrid>
-                        <MudItem xs="12">
-                            <MudTextField @bind-Value="_model.AllowedFileTypesText"
-                                          Label="Allowed file types"
-                                          Variant="Variant.Outlined"
-                                          HelperText="Use comma-separated file extensions, for example .pdf, .md, .docx."
-                                          Lines="3" />
-
-                            @if (ParsedAllowedFileTypes.Count > 0)
-                            {
-                                <div class="callio-plan-card-quotas mt-3">
-                                    @foreach (var fileType in ParsedAllowedFileTypes)
-                                    {
-                                        <div class="callio-plan-card-quota">@fileType</div>
-                                    }
-                                </div>
-                            }
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudNumericField T="decimal"
-                                             @bind-Value="_model.MaximumFileSizeMegabytes"
-                                             Label="Maximum file size (MB)"
-                                             Variant="Variant.Outlined"
-                                             Min="@(1m)"
-                                             Step="@(1m)" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudStack Spacing="2" Class="callio-switch-list">
-                                <MudSwitch T="bool"
-                                           @bind-Value="_model.AutoProcessOnUpload"
-                                           Color="Color.Primary"
-                                           Label="Automatically process new uploads" />
-                                <MudSwitch T="bool"
-                                           @bind-Value="_model.ManualApprovalRequiredBeforeIndexing"
-                                           Color="Color.Primary"
-                                           Label="Require manual approval before indexing" />
-                                <MudSwitch T="bool"
-                                           @bind-Value="_model.VersioningEnabled"
-                                           Color="Color.Primary"
-                                           Label="Keep document version history" />
-                            </MudStack>
-                        </MudItem>
-                    </MudGrid>
-                </MudPaper>
-
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                        <div>
-                            <MudText Typo="Typo.h6">Ready to save</MudText>
-                            <MudText Typo="Typo.body2" Class="callio-lead">
-                                Changes update the tenant's active knowledge configuration immediately.
-                            </MudText>
-                        </div>
-                        <MudStack Row="true" Spacing="2">
-                            <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       ButtonType="ButtonType.Button"
-                                       Disabled="@_loading"
-                                       OnClick="LoadAsync">
-                                Reload
-                            </MudButton>
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       ButtonType="ButtonType.Button"
-                                       Disabled="@(_loading || !CanSave)"
-                                       OnClick="SaveAsync">
-                                @(_loading ? "Saving..." : "Save knowledge settings")
-                            </MudButton>
+                @if (_setupStatus is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h6">Provisioning setup</MudText>
+                            <MudChip T="string"
+                                     Size="Size.Small"
+                                     Color="@GetSetupStatusColor(_setupStatus.Status)"
+                                     Variant="Variant.Filled">
+                                @_setupStatus.Status
+                            </MudChip>
                         </MudStack>
-                    </MudStack>
-                </MudPaper>
-            }
-        </MudStack>
-    </MudItem>
-</MudGrid>
+
+                        <MudText Typo="Typo.body2" Class="callio-lead mt-3">
+                            Active tenant: #@_tenantId.Value
+                        </MudText>
+                    </MudPaper>
+                }
+
+                @if (_settings is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Fixed model constraints</MudText>
+                        <div class="callio-detail-list mt-3">
+                            <div class="callio-detail-item">
+                                <span>Embedding provider</span>
+                                <strong>@_settings.Models.EmbeddingProvider</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Embedding model</span>
+                                <strong>@_settings.Models.EmbeddingModel</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Generation model</span>
+                                <strong>@_settings.Models.GenerationModel</strong>
+                            </div>
+                        </div>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+                {
+                    <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
+                }
+
+                @if (_settings is null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">Loading tenant settings</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            Callio is initializing the tenant knowledge configuration.
+                        </MudText>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">Assistant prompts</MudText>
+                        <MudGrid Class="mt-2">
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="_model.SystemPrompt" Label="System prompt" Variant="Variant.Outlined" Lines="6" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="_model.AssistantInstructionPrompt" Label="Assistant instruction prompt" Variant="Variant.Outlined" Lines="5" Required="true" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">Retrieval behavior</MudText>
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField @bind-Value="_model.ChunkSize" Label="Chunk size" Variant="Variant.Outlined" Min="1" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField @bind-Value="_model.ChunkOverlap" Label="Chunk overlap" Variant="Variant.Outlined" Min="0" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField @bind-Value="_model.TopKRetrievalCount" Label="Top K retrieval count" Variant="Variant.Outlined" Min="1" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField @bind-Value="_model.MaximumChunksInFinalContext" Label="Maximum chunks in final context" Variant="Variant.Outlined" Min="1" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField T="decimal"
+                                                 @bind-Value="_model.MinimumSimilarityThreshold"
+                                                 Label="Minimum similarity threshold"
+                                                 Variant="Variant.Outlined"
+                                                 Min="@(0m)"
+                                                 Max="@(1m)"
+                                                 Step="@(0.01m)" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">File intake and processing</MudText>
+                        <MudGrid>
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="_model.AllowedFileTypesText"
+                                              Label="Allowed file types"
+                                              Variant="Variant.Outlined"
+                                              HelperText="Use comma-separated file extensions, for example .pdf, .md, .docx."
+                                              Lines="3" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudNumericField T="decimal"
+                                                 @bind-Value="_model.MaximumFileSizeMegabytes"
+                                                 Label="Maximum file size (MB)"
+                                                 Variant="Variant.Outlined"
+                                                 Min="@(1m)"
+                                                 Step="@(1m)" />
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudStack Spacing="2" Class="callio-switch-list">
+                                    <MudSwitch T="bool" @bind-Value="_model.AutoProcessOnUpload" Color="Color.Primary" Label="Automatically process new uploads" />
+                                    <MudSwitch T="bool" @bind-Value="_model.ManualApprovalRequiredBeforeIndexing" Color="Color.Primary" Label="Require manual approval before indexing" />
+                                    <MudSwitch T="bool" @bind-Value="_model.VersioningEnabled" Color="Color.Primary" Label="Keep document version history" />
+                                </MudStack>
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <div>
+                                <MudText Typo="Typo.h6">Ready to save</MudText>
+                                <MudText Typo="Typo.body2" Class="callio-lead">
+                                    Changes update the tenant's active knowledge configuration immediately.
+                                </MudText>
+                            </div>
+                            <MudStack Row="true" Spacing="2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_loading" OnClick="LoadAsync">
+                                    Reload
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_loading || !CanSave)" OnClick="SaveAsync">
+                                    @(_loading ? "Saving..." : "Save knowledge settings")
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
 
 @code {
     private const decimal BytesPerMegabyte = 1024m * 1024m;
 
-    [SupplyParameterFromQuery(Name = "tenantId")]
-    public int? QueryTenantId { get; set; }
-
+    private PortalUserSession? _session;
+    private int? _tenantId;
     private readonly TenantKnowledgeSettingsVm _model = new();
-    private int _lookupTenantId;
-    private int? _appliedQueryTenantId;
+    private bool _loadingSession = true;
     private bool _loading;
     private string? _feedbackMessage;
     private Severity _feedbackSeverity = Severity.Info;
@@ -296,7 +213,7 @@
     private IReadOnlyList<string> ParsedAllowedFileTypes => ParseAllowedFileTypes(_model.AllowedFileTypesText);
 
     private bool CanSave =>
-        _lookupTenantId > 0 &&
+        _tenantId is > 0 &&
         !string.IsNullOrWhiteSpace(_model.SystemPrompt) &&
         !string.IsNullOrWhiteSpace(_model.AssistantInstructionPrompt) &&
         _model.ChunkSize > 0 &&
@@ -306,37 +223,30 @@
         _model.MaximumFileSizeMegabytes > 0 &&
         ParsedAllowedFileTypes.Count > 0;
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
     {
-        if (QueryTenantId is not > 0 || QueryTenantId == _appliedQueryTenantId)
-            return;
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        _tenantId = _session?.TenantId;
+        _loadingSession = false;
 
-        _appliedQueryTenantId = QueryTenantId;
-        _lookupTenantId = QueryTenantId.Value;
-        await LoadAsync();
+        if (_tenantId is > 0)
+            await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        if (_lookupTenantId <= 0)
-        {
-            SetFeedback(Severity.Error, "Enter a tenant ID before loading knowledge settings.");
+        if (_tenantId is not > 0)
             return;
-        }
 
         _loading = true;
         _feedbackMessage = null;
 
         try
         {
-            _setupStatus = await TenantKnowledgeSettingsApi.GetSetupStatusAsync(_lookupTenantId);
-            _settings = await TenantKnowledgeSettingsApi.GetSettingsAsync(_lookupTenantId);
-
-            if (_settings is null)
-            {
-                _settings = await TenantKnowledgeSettingsApi.CreateDefaultAsync(_lookupTenantId);
-                SetFeedback(Severity.Info, "No saved knowledge configuration existed yet, so Callio initialized the default one for this tenant.");
-            }
+            _setupStatus = await TenantKnowledgeSettingsApi.GetSetupStatusAsync(_tenantId.Value);
+            _settings = await TenantKnowledgeSettingsApi.GetSettingsAsync(_tenantId.Value)
+                        ?? await TenantKnowledgeSettingsApi.CreateDefaultAsync(_tenantId.Value);
 
             Apply(_settings);
         }
@@ -354,7 +264,7 @@
 
     private async Task SaveAsync()
     {
-        if (!CanSave)
+        if (!CanSave || _tenantId is not > 0)
         {
             SetFeedback(Severity.Error, "Complete the required prompt, retrieval, and file intake fields before saving.");
             return;
@@ -367,7 +277,7 @@
         {
             var maximumFileSizeBytes = decimal.ToInt64(decimal.Round(_model.MaximumFileSizeMegabytes * BytesPerMegabyte, 0, MidpointRounding.AwayFromZero));
             _settings = await TenantKnowledgeSettingsApi.SaveAsync(
-                _lookupTenantId,
+                _tenantId.Value,
                 new Callio.Client.Services.UpdatePortalTenantKnowledgeSettingsRequest(
                     _model.SystemPrompt.Trim(),
                     _model.AssistantInstructionPrompt.Trim(),
@@ -383,7 +293,7 @@
                     _model.VersioningEnabled));
 
             Apply(_settings);
-            _setupStatus = await TenantKnowledgeSettingsApi.GetSetupStatusAsync(_lookupTenantId);
+            _setupStatus = await TenantKnowledgeSettingsApi.GetSetupStatusAsync(_tenantId.Value);
             SetFeedback(Severity.Success, "Knowledge settings saved for this tenant.");
         }
         catch (Exception ex)
@@ -432,17 +342,6 @@
         "InProgress" => Color.Info,
         _ => Color.Warning
     };
-
-    private static string GetSetupStatusMessage(PortalTenantKnowledgeSetupStatusResponse setupStatus) => setupStatus.Status switch
-    {
-        "Succeeded" => "The tenant provisioning flow has already created the knowledge configuration workspace.",
-        "Failed" => "The first setup attempt failed. You can still review or reinitialize the active settings from this screen.",
-        "InProgress" => "The provisioning workflow is still preparing the tenant knowledge workspace.",
-        _ => "The tenant has a pending knowledge configuration setup record."
-    };
-
-    private static string FormatUtc(DateTime value)
-        => value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     private sealed class TenantKnowledgeSettingsVm
     {

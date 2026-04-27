@@ -1,6 +1,10 @@
+using Callio.Core.Domain.Constants.Identity;
+using Callio.Core.Domain.Identity;
 using Callio.Identity.Domain;
+using Callio.Identity.Infrastructure.Identity;
 using Callio.Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,8 +22,16 @@ public static class IdentityModuleExtensions
         services.AddIdentityApiEndpoints<ApplicationUser>()
             .AddEntityFrameworkStores<AppIdentityDbContext>();
 
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
+        services.AddScoped<IPortalUserContextAccessor, PortalUserContextAccessor>();
+
         services.AddAuthentication();
-        services.AddAuthorization();
+        services.AddAuthorizationBuilder()
+            .AddPolicy(AppPolicies.PortalUser, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim(AppClaims.UserType, UserType.TenantUser.ToString());
+            });
     }
 
     public static void MapIdentityModule(this IEndpointRouteBuilder app)

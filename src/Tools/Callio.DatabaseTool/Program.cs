@@ -1,5 +1,6 @@
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.DatabaseTool;
+using Callio.Generation.Infrastructure;
 using Callio.Identity.Infrastructure.Persistence;
 using Callio.Knowledge.Infrastructure;
 using Callio.Provisioning.Infrastructure.Options;
@@ -31,9 +32,11 @@ builder.Services.AddDbContext<AdminDbContext>(options => options.UseSqlServer(ca
 builder.Services.AddDbContext<AppIdentityDbContext>(options => options.UseSqlServer(callioDbConnectionString));
 builder.Services.AddDbContext<ProvisioningDbContext>(options => options.UseSqlServer(callioDbConnectionString));
 
+builder.Services.AddSingleton<ITenantDatabaseConnectionStringFactory, TenantDatabaseConnectionStringFactory>();
 builder.Services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();
 builder.Services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();
 builder.Services.AddKnowledgeModule(builder.Configuration);
+builder.Services.AddGenerationModule(builder.Configuration);
 
 builder.Services.AddScoped<TenantSchemaMigrationRunner>();
 builder.Services.AddScoped<TestTenantRequestSeeder>();

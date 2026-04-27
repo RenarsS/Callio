@@ -4,7 +4,9 @@ using Callio.Admin.Domain.ValueObjects;
 using Callio.Admin.Infrastructure.Persistence;
 using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure.Persistence;
+using Callio.Generation.Application.Generation;
 using Callio.Knowledge.Application.KnowledgeConfigurations;
+using Callio.Knowledge.Application.KnowledgeDocuments;
 using Callio.Knowledge.Domain;
 using Callio.Knowledge.Domain.Enums;
 using Callio.Knowledge.Infrastructure.Persistence;
@@ -16,6 +18,7 @@ using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace Callio.DatabaseTool;
 
@@ -27,6 +30,8 @@ internal sealed class TestTenantRequestSeeder(
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     ITenantKnowledgeConfigurationService tenantKnowledgeConfigurationService,
     ITenantKnowledgeConfigurationSetupService tenantKnowledgeConfigurationSetupService,
+    ITenantKnowledgeDocumentService tenantKnowledgeDocumentService,
+    ITenantGenerationService tenantGenerationService,
     IKnowledgeMetadataStoreProvisioner knowledgeMetadataStoreProvisioner,
     TenantSchemaMigrationRunner tenantSchemaMigrationRunner,
     ILogger<TestTenantRequestSeeder> logger)
@@ -72,6 +77,8 @@ internal sealed class TestTenantRequestSeeder(
         logger.LogInformation("Tenant schema setup refreshed for {SchemaCount} schema(s) after seeding.", migratedSchemas);
 
         await EnsureHealthyKnowledgeConfigurationAsync(healthyTenant.TenantId, cancellationToken);
+        await EnsureHealthyKnowledgeDocumentsAsync(healthyTenant.TenantId, cancellationToken);
+        await EnsureHealthyGenerationDataAsync(healthyTenant.TenantId, cancellationToken);
         await tenantKnowledgeConfigurationSetupService.EnsurePendingAsync(provisioningFailedTenant.TenantId, cancellationToken);
         await EnsureFailedKnowledgeConfigurationSetupAsync(configurationFailedTenant.TenantId, cancellationToken);
 
@@ -363,7 +370,7 @@ internal sealed class TestTenantRequestSeeder(
             return existingUser;
         }
 
-        var user = ApplicationUser.CreatePowerUser(email, firstName, lastName);
+        var user = ApplicationUser.CreateTenantUser(email, firstName, lastName, tenantId);
         user.Id = preferredUserId;
         user.EmailConfirmed = true;
         user.PhoneNumber = phoneNumber;
@@ -665,6 +672,132 @@ internal sealed class TestTenantRequestSeeder(
 
             await knowledgeDbContext.SaveChangesAsync(cancellationToken);
         }
+    }
+
+    private async Task EnsureHealthyGenerationDataAsync(int tenantId, CancellationToken cancellationToken)
+    {
+        var prompts = await tenantGenerationService.GetPromptTemplatesAsync(tenantId, cancellationToken);
+
+        var executiveBrief = prompts.FirstOrDefault(x => x.Key == "executive-brief");
+        if (executiveBrief is null)
+        {
+            executiveBrief = await tenantGenerationService.CreatePromptTemplateAsync(
+                new CreateTenantGenerationPromptTemplateCommand(
+                    tenantId,
+                    "executive-brief",
+                    "Executive brief",
+                    "Summarize retrieved tenant knowledge into a short executive-ready brief.",
+                    "You write concise executive summaries for the tenant. Use only the retrieved tenant context and clearly state when evidence is missing.",
+                    "Topic:\n{{input}}\n\nTenant instructions:\n{{assistantInstructionPrompt}}\n\nContext:\n{{context}}\n\nWrite a short executive brief with three bullets and cite sources.",
+                    [new GenerationDataSourceSelectionDto("KnowledgeChunk", null, null, null, null, null, null, false)]),
+                cancellationToken);
+        }
+
+        var existingResponses = await tenantGenerationService.GetResponsesAsync(
+            tenantId,
+            new GetTenantGenerationResponsesQuery(10),
+            cancellationToken);
+
+        if (existingResponses.Any(x => x.PromptKey == "knowledge-answer"))
+        {
+            logger.LogInformation(
+                "Skipping seeded generation responses for tenant {TenantId} because response storage already contains sample data.",
+                tenantId);
+
+            return;
+        }
+
+        await tenantGenerationService.GenerateAsync(
+            new GenerateTenantResponseCommand(
+                tenantId,
+                "What is the current onboarding status for Acme Intelligence?",
+                "knowledge-answer",
+                [],
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                true,
+                "seed-acme-admin",
+                "Avery Cole"),
+            cancellationToken);
+
+        await tenantGenerationService.GenerateAsync(
+            new GenerateTenantResponseCommand(
+                tenantId,
+                "Provide a short executive brief for the Acme Intelligence rollout.",
+                executiveBrief.Key,
+                [],
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                true,
+                "seed-acme-admin",
+                "Avery Cole"),
+            cancellationToken);
+    }
+
+    private async Task EnsureHealthyKnowledgeDocumentsAsync(int tenantId, CancellationToken cancellationToken)
+    {
+        var existingDocuments = await tenantKnowledgeDocumentService.GetDocumentsAsync(
+            tenantId,
+            new GetTenantKnowledgeDocumentsQuery(null, null, null),
+            cancellationToken);
+
+        if (existingDocuments.Count > 0)
+        {
+            logger.LogInformation(
+                "Skipping seeded knowledge library documents for tenant {TenantId} because the tenant schema already contains uploaded documents.",
+                tenantId);
+
+            return;
+        }
+
+        await tenantKnowledgeDocumentService.UploadAsync(
+            new UploadTenantKnowledgeDocumentCommand(
+                tenantId,
+                "Acme rollout overview",
+                "acme-rollout-overview.md",
+                "text/markdown",
+                Encoding.UTF8.GetBytes(
+                    """
+                    # Acme rollout overview
+
+                    Acme Intelligence has completed tenant approval and infrastructure provisioning.
+
+                    The customer success team should direct portal users to the customer dashboard for provisioning, knowledge settings, prompt storage, response storage, and the knowledge library.
+
+                    Knowledge ingestion for Acme should prioritize approved operating procedures, implementation notes, and customer-facing support material.
+                    """),
+                CategoryId: null,
+                CategoryName: "Operations",
+                TagIds: [],
+                TagNames: ["rollout", "onboarding", "dashboard"],
+                UploadedByUserId: "seed-acme-admin",
+                UploadedByDisplayName: "Avery Cole",
+                ApproveForIndexing: true,
+                SourceType: KnowledgeDocumentSourceType.ManualUpload),
+            cancellationToken);
+
+        await tenantKnowledgeDocumentService.UploadAsync(
+            new UploadTenantKnowledgeDocumentCommand(
+                tenantId,
+                "Acme support playbook",
+                "acme-support-playbook.txt",
+                "text/plain",
+                Encoding.UTF8.GetBytes(
+                    """
+                    Acme support playbook
+
+                    1. Confirm the tenant provisioning status from the portal before escalating onboarding issues.
+                    2. Review the active knowledge settings before bulk document uploads.
+                    3. Store reusable answer patterns in prompt storage and audit important outputs in response storage.
+                    4. Escalate failed ingestion or provisioning runs with the recorded error details.
+                    """),
+                CategoryId: null,
+                CategoryName: "Support",
+                TagIds: [],
+                TagNames: ["support", "knowledge", "responses"],
+                UploadedByUserId: "seed-acme-admin",
+                UploadedByDisplayName: "Avery Cole",
+                ApproveForIndexing: true,
+                SourceType: KnowledgeDocumentSourceType.ManualUpload),
+            cancellationToken);
     }
 
     private static Plan GetRequiredPlan(IReadOnlyDictionary<string, Plan> plans, string planName)

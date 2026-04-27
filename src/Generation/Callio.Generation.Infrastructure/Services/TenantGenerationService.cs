@@ -20,8 +20,20 @@ public class TenantGenerationService(
 {
     private readonly TenantGenerationOptions _options = options.Value;
 
-    public Task<IReadOnlyList<GenerationPromptTemplateDto>> GetPromptTemplatesAsync(CancellationToken cancellationToken = default)
-        => promptCatalog.GetTemplatesAsync(cancellationToken);
+    public Task<IReadOnlyList<GenerationPromptTemplateDto>> GetPromptTemplatesAsync(
+        int tenantId,
+        CancellationToken cancellationToken = default)
+        => promptCatalog.GetTemplatesAsync(tenantId, cancellationToken);
+
+    public Task<GenerationPromptTemplateDto> CreatePromptTemplateAsync(
+        CreateTenantGenerationPromptTemplateCommand command,
+        CancellationToken cancellationToken = default)
+        => promptCatalog.CreateTemplateAsync(command, cancellationToken);
+
+    public Task<GenerationPromptTemplateDto?> UpdatePromptTemplateAsync(
+        UpdateTenantGenerationPromptTemplateCommand command,
+        CancellationToken cancellationToken = default)
+        => promptCatalog.UpdateTemplateAsync(command, cancellationToken);
 
     public async Task<GenerationResponseDto> GenerateAsync(
         GenerateTenantResponseCommand command,
@@ -30,7 +42,7 @@ public class TenantGenerationService(
         ValidateCommand(command);
 
         var configuration = await GetOrCreateConfigurationAsync(command.TenantId, cancellationToken);
-        var template = await promptCatalog.GetTemplateAsync(command.PromptKey, cancellationToken);
+        var template = await promptCatalog.GetTemplateAsync(command.TenantId, command.PromptKey, cancellationToken);
         var dataSources = MergeDataSources(template.DataSources, command.DataSources);
         var sources = await sourceProvider.RetrieveAsync(
             command.TenantId,

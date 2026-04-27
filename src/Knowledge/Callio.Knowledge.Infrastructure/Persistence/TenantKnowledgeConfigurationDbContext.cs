@@ -17,7 +17,8 @@ public class TenantKnowledgeConfigurationDbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema(SchemaName);
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeConfigurationEntityConfiguration(SchemaName));
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeConfigurationEntityConfiguration());
     }
 }

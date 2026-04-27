@@ -2,120 +2,100 @@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @using Callio.Client.Models
 @using Microsoft.AspNetCore.Components.Forms
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
 @inject Callio.Client.Services.TenantKnowledgeSettingsApi TenantKnowledgeSettingsApi
 @inject Callio.Client.Services.TenantKnowledgeDocumentsApi TenantKnowledgeDocumentsApi
+@inject NavigationManager Navigation
 
 <PageTitle>Knowledge library</PageTitle>
 
-<MudGrid Spacing="3">
-    <MudItem xs="12" lg="4">
-        <MudStack Spacing="3">
-            <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
-                <div class="callio-kicker">Tenant knowledge library</div>
-                <MudText Typo="Typo.h4" GutterBottom="true">Upload one file or a whole batch into the tenant workspace.</MudText>
-                <MudText Typo="Typo.body2" Class="callio-lead">
-                    Load the tenant, review the active intake rules, then send manual uploads into the same knowledge pipeline that powers the tenant's RAG behavior.
-                </MudText>
-            </MudPaper>
+@if (_loadingSession)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else if (_tenantId is null)
+{
+    <TenantWorkspaceNav Session="_session" />
 
-            <MudPaper Class="callio-card pa-5" Elevation="0">
-                <MudText Typo="Typo.h6" GutterBottom="true">Load tenant library</MudText>
-                <MudText Typo="Typo.body2" Class="callio-lead">
-                    Use the approved tenant ID from the request status page to open the tenant's upload workspace.
-                </MudText>
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudText Typo="Typo.h5" GutterBottom="true">Knowledge library unlocks after tenant approval</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            This account has not been linked to an approved tenant yet. Check provisioning to follow approval and infrastructure progress.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-4">
+            Open provisioning
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
 
-                <MudNumericField @bind-Value="_lookupTenantId"
-                                 Label="Tenant ID"
-                                 Variant="Variant.Outlined"
-                                 Min="1"
-                                 Immediate="true"
-                                 Class="mt-4" />
-
-                <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               ButtonType="ButtonType.Button"
-                               Disabled="@(_loadingTenant || _lookupTenantId <= 0)"
-                               OnClick="LoadAsync">
-                        @(_loadingTenant ? "Loading..." : "Load library")
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-request-status">Find tenant ID</MudButton>
-                </MudStack>
-            </MudPaper>
-
-            @if (_settings is not null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h6" GutterBottom="true">Current intake rules</MudText>
-                    <div class="callio-detail-list mt-3">
-                        <div class="callio-detail-item">
-                            <span>Allowed types</span>
-                            <strong>@string.Join(", ", _settings.AllowedFileTypes)</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Max file size</span>
-                            <strong>@FormatFileSize(_settings.MaximumFileSizeBytes)</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Auto process</span>
-                            <strong>@(_settings.AutoProcessOnUpload ? "Yes" : "No")</strong>
-                        </div>
-                        <div class="callio-detail-item">
-                            <span>Approval gate</span>
-                            <strong>@(_settings.ManualApprovalRequiredBeforeIndexing ? "Manual review" : "Immediate indexing")</strong>
-                        </div>
-                    </div>
-
-                    @if (_settings.AllowedFileTypes.Count > 0)
-                    {
-                        <div class="callio-plan-card-quotas mt-4">
-                            @foreach (var fileType in _settings.AllowedFileTypes)
-                            {
-                                <div class="callio-plan-card-quota">@fileType</div>
-                            }
-                        </div>
-                    }
-                </MudPaper>
-            }
-
-            @if (_documents.Count > 0)
-            {
-                <div class="callio-stat-row">
-                    <div class="callio-stat">
-                        <div class="callio-stat-label">Files</div>
-                        <div class="callio-stat-value">@_documents.Count</div>
-                    </div>
-                    <div class="callio-stat">
-                        <div class="callio-stat-label">Ready</div>
-                        <div class="callio-stat-value">@_documents.Count(x => x.ProcessingStatus == "Ready")</div>
-                    </div>
-                    <div class="callio-stat">
-                        <div class="callio-stat-label">Storage</div>
-                        <div class="callio-stat-value">@FormatCompactFileSize(_documents.Sum(x => x.SizeBytes))</div>
-                    </div>
-                </div>
-            }
-        </MudStack>
-    </MudItem>
-
-    <MudItem xs="12" lg="8">
-        <MudStack Spacing="3">
-            @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
-            {
-                <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
-            }
-
-            @if (_settings is null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudText Typo="Typo.h5" GutterBottom="true">No tenant selected yet</MudText>
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                    <div class="callio-kicker">Tenant knowledge library</div>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Upload one file or a whole batch into the tenant workspace.</MudText>
                     <MudText Typo="Typo.body2" Class="callio-lead">
-                        Load a tenant to see its knowledge documents, choose categories and tags, and start manual uploads.
+                        Files are stored and indexed against the signed-in tenant. There is no manual tenant switching in the customer workspace.
                     </MudText>
                 </MudPaper>
-            }
-            else
-            {
+
+                @if (_settings is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Current intake rules</MudText>
+                        <div class="callio-detail-list mt-3">
+                            <div class="callio-detail-item">
+                                <span>Allowed types</span>
+                                <strong>@string.Join(", ", _settings.AllowedFileTypes)</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Max file size</span>
+                                <strong>@FormatFileSize(_settings.MaximumFileSizeBytes)</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Approval gate</span>
+                                <strong>@(_settings.ManualApprovalRequiredBeforeIndexing ? "Manual review" : "Immediate indexing")</strong>
+                            </div>
+                        </div>
+                    </MudPaper>
+                }
+
+                @if (_documents.Count > 0)
+                {
+                    <div class="callio-stat-row">
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Files</div>
+                            <div class="callio-stat-value">@_documents.Count</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Ready</div>
+                            <div class="callio-stat-value">@_documents.Count(x => x.ProcessingStatus == "Ready")</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Storage</div>
+                            <div class="callio-stat-value">@FormatCompactFileSize(_documents.Sum(x => x.SizeBytes))</div>
+                        </div>
+                    </div>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+                {
+                    <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
+                }
+
                 <MudPaper Class="callio-card pa-5" Elevation="0">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                         <div>
@@ -124,7 +104,7 @@
                                 Select one or more files. Each file is uploaded separately so you can see which ones completed, failed, or still need attention.
                             </MudText>
                         </div>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/tenant-knowledge-settings?tenantId={_lookupTenantId}")">
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-knowledge-settings">
                             Open knowledge settings
                         </MudButton>
                     </MudStack>
@@ -134,17 +114,11 @@
                             <MudPaper Outlined="true" Class="pa-4">
                                 <MudText Typo="Typo.subtitle2" GutterBottom="true">Choose files</MudText>
                                 <InputFile OnChange="HandleFilesSelected" multiple />
-                                <MudText Typo="Typo.caption" Class="mt-3 d-block">
-                                    Files are validated against the tenant's current file type and size rules before upload.
-                                </MudText>
                             </MudPaper>
                         </MudItem>
 
                         <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.Title"
-                                          Label="Title override"
-                                          Variant="Variant.Outlined"
-                                          HelperText="Optional. Used only when one file is selected." />
+                            <MudTextField @bind-Value="_model.Title" Label="Title override" Variant="Variant.Outlined" />
                         </MudItem>
                         <MudItem xs="12" md="6">
                             <MudSelect T="int" @bind-Value="_model.SelectedCategoryId" Label="Existing category" Variant="Variant.Outlined">
@@ -156,100 +130,24 @@
                             </MudSelect>
                         </MudItem>
                         <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.NewCategoryName"
-                                          Label="New category"
-                                          Variant="Variant.Outlined"
-                                          HelperText="If filled, this category is created or reused during upload." />
+                            <MudTextField @bind-Value="_model.NewCategoryName" Label="New category" Variant="Variant.Outlined" />
                         </MudItem>
                         <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.TagNamesText"
-                                          Label="Tags"
-                                          Variant="Variant.Outlined"
-                                          HelperText="Comma-separated tags. Missing tags are created automatically." />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.UploadedByDisplayName"
-                                          Label="Uploaded by"
-                                          Variant="Variant.Outlined" />
-                        </MudItem>
-                        <MudItem xs="12" md="6">
-                            <MudTextField @bind-Value="_model.UploadedByUserId"
-                                          Label="Uploader ID"
-                                          Variant="Variant.Outlined" />
+                            <MudTextField @bind-Value="_model.TagNamesText" Label="Tags" Variant="Variant.Outlined" HelperText="Comma-separated tags." />
                         </MudItem>
                         <MudItem xs="12">
-                            <MudSwitch T="bool"
-                                       @bind-Value="_model.ApproveForIndexing"
-                                       Color="Color.Primary"
-                                       Label="Approve for indexing immediately when the tenant requires manual approval" />
+                            <MudSwitch T="bool" @bind-Value="_model.ApproveForIndexing" Color="Color.Primary" Label="Approve for indexing immediately when manual approval is enabled" />
                         </MudItem>
                     </MudGrid>
 
-                    @if (_categories.Count > 0)
-                    {
-                        <MudText Typo="Typo.subtitle2" Class="mt-4">Existing categories</MudText>
-                        <div class="callio-plan-card-quotas mt-2">
-                            @foreach (var category in _categories)
-                            {
-                                <div class="callio-plan-card-quota">@category.Name</div>
-                            }
-                        </div>
-                    }
-
-                    @if (_tags.Count > 0)
-                    {
-                        <MudText Typo="Typo.subtitle2" Class="mt-4">Existing tags</MudText>
-                        <div class="callio-plan-card-quotas mt-2">
-                            @foreach (var tag in _tags.Take(24))
-                            {
-                                <div class="callio-plan-card-quota">@tag.Name</div>
-                            }
-                        </div>
-                    }
-
                     <MudStack Row="true" Spacing="2" Class="mt-5">
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Disabled="@(!CanUpload)"
-                                   OnClick="UploadAsync">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanUpload)" OnClick="UploadAsync">
                             @(_uploading ? "Uploading..." : UploadButtonLabel)
                         </MudButton>
-                        <MudButton Variant="Variant.Outlined"
-                                   Color="Color.Primary"
-                                   Disabled="@(_uploading || _lookupTenantId <= 0)"
-                                   OnClick="LoadAsync">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_uploading" OnClick="LoadAsync">
                             Refresh library
                         </MudButton>
                     </MudStack>
-
-                    @if (_uploadItems.Count > 0)
-                    {
-                        <MudTable Items="_uploadItems" Dense="true" Hover="true" Class="mt-5">
-                            <HeaderContent>
-                                <MudTh>File</MudTh>
-                                <MudTh>Size</MudTh>
-                                <MudTh>Status</MudTh>
-                                <MudTh>Details</MudTh>
-                            </HeaderContent>
-                            <RowTemplate>
-                                <MudTd>
-                                    <MudText Typo="Typo.subtitle2">@context.FileName</MudText>
-                                </MudTd>
-                                <MudTd>@FormatFileSize(context.SizeBytes)</MudTd>
-                                <MudTd>
-                                    <MudChip T="string" Size="Size.Small" Color="@GetUploadColor(context.Status)">
-                                        @context.Status
-                                    </MudChip>
-                                </MudTd>
-                                <MudTd>
-                                    @if (!string.IsNullOrWhiteSpace(context.Message))
-                                    {
-                                        <MudText Typo="Typo.caption">@context.Message</MudText>
-                                    }
-                                </MudTd>
-                            </RowTemplate>
-                        </MudTable>
-                    }
                 </MudPaper>
 
                 <MudPaper Class="callio-card pa-5" Elevation="0">
@@ -280,7 +178,6 @@
                                 <MudTh>Tags</MudTh>
                                 <MudTh>Status</MudTh>
                                 <MudTh>Size</MudTh>
-                                <MudTh>Indexed</MudTh>
                             </HeaderContent>
                             <RowTemplate>
                                 <MudTd>
@@ -307,30 +204,22 @@
                                     <MudChip T="string" Size="Size.Small" Color="@GetDocumentColor(context.ProcessingStatus)">
                                         @context.ProcessingStatus
                                     </MudChip>
-                                    @if (!string.IsNullOrWhiteSpace(context.LastError))
-                                    {
-                                        <MudText Typo="Typo.caption" Color="Color.Error">@context.LastError</MudText>
-                                    }
                                 </MudTd>
                                 <MudTd>@FormatFileSize(context.SizeBytes)</MudTd>
-                                <MudTd>@(context.IndexedAtUtc.HasValue ? FormatUtc(context.IndexedAtUtc.Value) : "Not indexed")</MudTd>
                             </RowTemplate>
                         </MudTable>
                     }
                 </MudPaper>
-            }
-        </MudStack>
-    </MudItem>
-</MudGrid>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
 
 @code {
-    [SupplyParameterFromQuery(Name = "tenantId")]
-    public int? QueryTenantId { get; set; }
-
+    private PortalUserSession? _session;
+    private int? _tenantId;
     private readonly KnowledgeLibraryVm _model = new() { ApproveForIndexing = true };
-    private int _lookupTenantId;
-    private int? _appliedQueryTenantId;
-    private bool _loadingTenant;
+    private bool _loadingSession = true;
     private bool _uploading;
     private string? _feedbackMessage;
     private Severity _feedbackSeverity = Severity.Info;
@@ -339,7 +228,6 @@
     private IReadOnlyList<PortalKnowledgeTagResponse> _tags = [];
     private List<PortalKnowledgeDocumentResponse> _documents = [];
     private List<IBrowserFile> _selectedFiles = [];
-    private List<UploadItemVm> _uploadItems = [];
 
     private bool CanUpload => _settings is not null && _selectedFiles.Count > 0 && !_uploading;
 
@@ -351,35 +239,32 @@
             _ => $"Upload {_selectedFiles.Count} files"
         };
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
     {
-        if (QueryTenantId is not > 0 || QueryTenantId == _appliedQueryTenantId)
-            return;
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        _tenantId = _session?.TenantId;
+        _loadingSession = false;
 
-        _appliedQueryTenantId = QueryTenantId;
-        _lookupTenantId = QueryTenantId.Value;
-        await LoadAsync();
+        if (_tenantId is > 0)
+            await LoadAsync();
     }
 
     private async Task LoadAsync()
     {
-        if (_lookupTenantId <= 0)
-        {
-            SetFeedback(Severity.Error, "Enter a tenant ID before opening the knowledge library.");
+        if (_tenantId is not > 0)
             return;
-        }
 
-        _loadingTenant = true;
         _feedbackMessage = null;
 
         try
         {
-            _settings = await TenantKnowledgeSettingsApi.GetSettingsAsync(_lookupTenantId)
-                        ?? await TenantKnowledgeSettingsApi.CreateDefaultAsync(_lookupTenantId);
+            _settings = await TenantKnowledgeSettingsApi.GetSettingsAsync(_tenantId.Value)
+                        ?? await TenantKnowledgeSettingsApi.CreateDefaultAsync(_tenantId.Value);
 
-            _categories = await TenantKnowledgeDocumentsApi.GetCategoriesAsync(_lookupTenantId);
-            _tags = await TenantKnowledgeDocumentsApi.GetTagsAsync(_lookupTenantId);
-            _documents = (await TenantKnowledgeDocumentsApi.GetDocumentsAsync(_lookupTenantId)).ToList();
+            _categories = await TenantKnowledgeDocumentsApi.GetCategoriesAsync(_tenantId.Value);
+            _tags = await TenantKnowledgeDocumentsApi.GetTagsAsync(_tenantId.Value);
+            _documents = (await TenantKnowledgeDocumentsApi.GetDocumentsAsync(_tenantId.Value)).ToList();
         }
         catch (Exception ex)
         {
@@ -391,16 +276,12 @@
         }
         finally
         {
-            _loadingTenant = false;
         }
     }
 
     private void HandleFilesSelected(InputFileChangeEventArgs args)
     {
         _selectedFiles = args.GetMultipleFiles(25).ToList();
-        _uploadItems = _selectedFiles
-            .Select(file => new UploadItemVm(file.Name, file.Size))
-            .ToList();
 
         if (_selectedFiles.Count > 1)
             _model.Title = string.Empty;
@@ -408,7 +289,7 @@
 
     private async Task UploadAsync()
     {
-        if (!CanUpload)
+        if (!CanUpload || _tenantId is not > 0)
             return;
 
         _uploading = true;
@@ -419,62 +300,38 @@
 
         try
         {
-            for (var index = 0; index < _selectedFiles.Count; index++)
+            foreach (var file in _selectedFiles)
             {
-                var file = _selectedFiles[index];
-                var item = _uploadItems[index];
-                item.Status = "Uploading";
-                item.Message = "Sending file to the tenant knowledge pipeline...";
-                StateHasChanged();
-
                 try
                 {
-                    var response = await TenantKnowledgeDocumentsApi.UploadAsync(
-                        _lookupTenantId,
+                    await TenantKnowledgeDocumentsApi.UploadAsync(
+                        _tenantId.Value,
                         new Callio.Client.Services.PortalTenantKnowledgeDocumentUploadRequest(
                             file,
                             _selectedFiles.Count == 1 ? _model.Title : null,
                             _model.SelectedCategoryId > 0 ? _model.SelectedCategoryId : null,
                             _model.NewCategoryName,
                             tagNames,
-                            _model.UploadedByUserId,
-                            _model.UploadedByDisplayName,
+                            null,
+                            null,
                             _model.ApproveForIndexing));
-
-                    item.Status = response.ProcessingStatus;
-                    item.Message = response.ProcessingStatus == "Ready"
-                        ? "Indexed and linked to tenant metadata."
-                        : string.IsNullOrWhiteSpace(response.LastError)
-                            ? "Upload completed."
-                            : response.LastError;
 
                     uploadedCount++;
                 }
                 catch (Exception ex)
                 {
-                    item.Status = "Failed";
-                    item.Message = ex.Message;
+                    SetFeedback(Severity.Error, ex.Message);
                 }
             }
 
-            await RefreshLibraryAsync();
-            SetFeedback(
-                uploadedCount > 0 ? Severity.Success : Severity.Warning,
-                uploadedCount > 0
-                    ? $"Uploaded {uploadedCount} of {_selectedFiles.Count} selected file(s)."
-                    : "No files were uploaded successfully.");
+            await LoadAsync();
+            if (uploadedCount > 0)
+                SetFeedback(Severity.Success, $"Uploaded {uploadedCount} of {_selectedFiles.Count} selected file(s).");
         }
         finally
         {
             _uploading = false;
         }
-    }
-
-    private async Task RefreshLibraryAsync()
-    {
-        _categories = await TenantKnowledgeDocumentsApi.GetCategoriesAsync(_lookupTenantId);
-        _tags = await TenantKnowledgeDocumentsApi.GetTagsAsync(_lookupTenantId);
-        _documents = (await TenantKnowledgeDocumentsApi.GetDocumentsAsync(_lookupTenantId)).ToList();
     }
 
     private void SetFeedback(Severity severity, string message)
@@ -490,15 +347,6 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    private static Color GetUploadColor(string status) => status switch
-    {
-        "Ready" => Color.Success,
-        "Uploading" => Color.Info,
-        "AwaitingApproval" => Color.Warning,
-        "Failed" => Color.Error,
-        _ => Color.Default
-    };
-
     private static Color GetDocumentColor(string status) => status switch
     {
         "Ready" => Color.Success,
@@ -507,9 +355,6 @@
         "Pending" => Color.Info,
         _ => Color.Default
     };
-
-    private static string FormatUtc(DateTime value)
-        => value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 
     private static string FormatFileSize(long sizeBytes)
     {
@@ -536,16 +381,6 @@
         public int SelectedCategoryId { get; set; }
         public string NewCategoryName { get; set; } = string.Empty;
         public string TagNamesText { get; set; } = string.Empty;
-        public string UploadedByDisplayName { get; set; } = string.Empty;
-        public string UploadedByUserId { get; set; } = string.Empty;
         public bool ApproveForIndexing { get; set; }
-    }
-
-    private sealed class UploadItemVm(string fileName, long sizeBytes)
-    {
-        public string FileName { get; } = fileName;
-        public long SizeBytes { get; } = sizeBytes;
-        public string Status { get; set; } = "Queued";
-        public string? Message { get; set; }
     }
 }

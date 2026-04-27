@@ -11,7 +11,7 @@ public class KnowledgeDbContext(DbContextOptions<KnowledgeDbContext> options) : 
     {
         base.OnModelCreating(modelBuilder);
 
-        modelBuilder.HasDefaultSchema("provisioning");
+        modelBuilder.HasDefaultSchema("knowledge");
 
         modelBuilder.Entity<TenantKnowledgeConfigurationSetup>(builder =>
         {

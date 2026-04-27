@@ -23,17 +23,20 @@ public class ApplicationUser : IdentityUser
             LastName = lastName,
             Type =  UserType.PowerUser,
         };
-    
-    public static ApplicationUser CreateApplicationUser(string email, string firstName, string lastName, int tenantId)
+
+    public static ApplicationUser CreateTenantUser(string email, string firstName, string lastName, int? tenantId = null)
         => new ()
         {
             Email = email,
             UserName = email,
             FirstName =  firstName,
             LastName = lastName,
-            Type =  UserType.PowerUser,
+            Type =  UserType.TenantUser,
             TenantId = tenantId
         };
+
+    public static ApplicationUser CreateApplicationUser(string email, string firstName, string lastName, int tenantId)
+        => CreateTenantUser(email, firstName, lastName, tenantId);
 
     public void LinkToTenant(int tenantId)
     {

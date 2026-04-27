@@ -1,0 +1,95 @@
+@page "/login"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject NavigationManager Navigation
+
+<PageTitle>Portal sign in</PageTitle>
+
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="12" sm="10" md="7" lg="5" xl="4">
+        <MudPaper Class="callio-card callio-card-strong pa-6" Elevation="0">
+            <div class="callio-kicker">Secure portal access</div>
+            <MudText Typo="Typo.h4" GutterBottom="true">Sign in to the customer workspace.</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Customer users can monitor provisioning, maintain knowledge settings, manage prompt storage, and review saved responses from one secured workspace.
+            </MudText>
+
+            <MudGrid Class="mt-4">
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_email"
+                                  Label="Email"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Email"
+                                  Required="true" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_password"
+                                  Label="Password"
+                                  Variant="Variant.Outlined"
+                                  InputType="InputType.Password"
+                                  Required="true" />
+                </MudItem>
+            </MudGrid>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">@_error</MudAlert>
+            }
+
+            <MudStack Row="true" Spacing="2" Class="mt-5">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="@_submitting"
+                           OnClick="SubmitAsync">
+                    @(_submitting ? "Signing in..." : "Sign in")
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-registration">
+                    Start onboarding
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private bool _submitting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await PortalSessionService.EnsureInitializedAsync();
+        if (session is not null)
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/tenant-dashboard" : ReturnUrl!, replace: true);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _error = "Enter both email and password before signing in.";
+            return;
+        }
+
+        _submitting = true;
+        _error = null;
+
+        try
+        {
+            await PortalSessionService.LoginAsync(_email.Trim(), _password, CancellationToken.None);
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/tenant-dashboard" : ReturnUrl!, replace: true);
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

@@ -1,173 +1,217 @@
+@page "/tenant-provisioning"
 @page "/tenant-request-status"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using Callio.Client.Models
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
 @inject Callio.Client.Services.TenantRequestApi TenantRequestApi
+@inject Callio.Client.Services.TenantProvisioningApi TenantProvisioningApi
+@inject NavigationManager Navigation
 
-<PageTitle>Request status</PageTitle>
+<PageTitle>Provisioning</PageTitle>
 
-<MudGrid Spacing="3">
-    <MudItem xs="12" lg="4">
-        <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
-            <div class="callio-kicker">Customer status view</div>
-            <MudText Typo="Typo.h4" GutterBottom="true">Check whether your tenant request is pending, approved, or rejected.</MudText>
-            <MudText Typo="Typo.body2" Class="callio-lead">
-                This page is the customer-facing handoff after submission. You can load the latest decision by tenant ID, or use the original request ID and email combination from the submission step.
-            </MudText>
-        </MudPaper>
-    </MudItem>
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
 
-    <MudItem xs="12" lg="8">
-        <MudStack Spacing="3">
-            <MudPaper Class="callio-card pa-5" Elevation="0">
-                <MudText Typo="Typo.h5" GutterBottom="true">Lookup request</MudText>
-
-                <MudGrid>
-                    <MudItem xs="12" md="4">
-                        <MudNumericField @bind-Value="_lookup.TenantId" Label="Tenant ID" Variant="Variant.Outlined" Min="1" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudNumericField @bind-Value="_lookup.RequestId" Label="Request ID" Variant="Variant.Outlined" Min="1" />
-                    </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudTextField @bind-Value="_lookup.Email" Label="Email" Variant="Variant.Outlined" InputType="InputType.Email" />
-                    </MudItem>
-                </MudGrid>
-
-                <MudText Typo="Typo.caption" Class="callio-lead mt-2">Tenant ID takes priority when it is present in the URL or lookup form.</MudText>
-
-                <MudStack Row="true" Spacing="2" Class="mt-4">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(_loading || !CanLookup)" OnClick="LookupAsync">
-                        @(_loading ? "Loading..." : "Load request status")
-                    </MudButton>
-                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-registration">Submit a new request</MudButton>
-                </MudStack>
-            </MudPaper>
-
-            @if (!string.IsNullOrWhiteSpace(_error))
-            {
-                <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
-            }
-
-            @if (_status is not null)
-            {
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start">
-                        <div>
-                            <MudText Typo="Typo.h5">@_status.TenantName</MudText>
-                            <MudText Typo="Typo.body2" Class="callio-lead">@_status.CompanyName</MudText>
-                        </div>
-                        <MudChip T="string" Size="Size.Medium" Color="@GetStatusColor(_status.Status)" Variant="Variant.Filled">
-                            @_status.Status
-                        </MudChip>
-                    </MudStack>
-
-                    @if (!string.IsNullOrWhiteSpace(_status.SelectedPlanName))
-                    {
-                        <MudChip T="string" Class="mt-4" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
-                            @($"Requested plan: {_status.SelectedPlanName}")
-                        </MudChip>
-                    }
-
-                    <MudDivider Class="my-4" />
-
-                    <MudText Typo="Typo.body2" Class="callio-lead">@GetStatusMessage(_status)</MudText>
-
-                    @if (!string.IsNullOrWhiteSpace(_status.DecisionNote))
-                    {
-                        <MudPaper Class="callio-card mt-4 pa-4" Elevation="0">
-                            <MudText Typo="Typo.subtitle1">Admin note</MudText>
-                            <MudText Typo="Typo.body2" Class="callio-lead">@_status.DecisionNote</MudText>
-                        </MudPaper>
-                    }
-
-                    @if (_status.Status == "Approved" && _status.TenantId.HasValue)
-                    {
-                        <MudStack Row="true" Spacing="2" Class="mt-4">
-                            <MudButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
-                                       Href="@($"/tenant-knowledge-library?tenantId={_status.TenantId.Value}")">
-                                Open knowledge library
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       Href="@($"/tenant-knowledge-settings?tenantId={_status.TenantId.Value}")">
-                                Open knowledge settings
-                            </MudButton>
-                            <MudButton Variant="Variant.Text"
-                                       Color="Color.Primary"
-                                       Href="/tenant-knowledge-library">
-                                Open library manually
-                            </MudButton>
-                        </MudStack>
-                    }
-                </MudPaper>
-            }
-        </MudStack>
-    </MudItem>
-</MudGrid>
-
-@code {
-    [SupplyParameterFromQuery(Name = "tenantId")]
-    public int? QueryTenantId { get; set; }
-
-    [SupplyParameterFromQuery(Name = "requestId")]
-    public int? QueryRequestId { get; set; }
-
-    [SupplyParameterFromQuery(Name = "email")]
-    public string? QueryEmail { get; set; }
-
-    private readonly RequestLookupVm _lookup = new();
-    private bool _loading;
-    private string? _appliedQueryKey;
-    private string? _error;
-    private Callio.Client.Services.PortalTenantRequestStatusResponse? _status;
-
-    private bool CanLookup =>
-        _lookup.TenantId > 0 ||
-        (_lookup.RequestId > 0 && !string.IsNullOrWhiteSpace(_lookup.Email));
-
-    protected override async Task OnParametersSetAsync()
+    @if (!string.IsNullOrWhiteSpace(_error))
     {
-        string? queryKey = null;
-
-        if (QueryTenantId is > 0)
-        {
-            _lookup.TenantId = QueryTenantId.Value;
-            queryKey = $"tenant:{QueryTenantId.Value}";
-        }
-        else if (QueryRequestId is > 0 && !string.IsNullOrWhiteSpace(QueryEmail))
-        {
-            _lookup.RequestId = QueryRequestId.Value;
-            _lookup.Email = QueryEmail;
-            queryKey = $"request:{QueryRequestId.Value}:{QueryEmail.Trim()}";
-        }
-
-        if (queryKey is null || queryKey == _appliedQueryKey)
-            return;
-
-        _appliedQueryKey = queryKey;
-        await LookupAsync();
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_error</MudAlert>
     }
 
-    private async Task LookupAsync()
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                    <div class="callio-kicker">Provisioning status</div>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Track onboarding, approval, and tenant infrastructure in one place.</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">
+                        This workspace reflects the signed-in customer user, so there is no manual tenant lookup. When approval completes, the page switches from request tracking into tenant provisioning details automatically.
+                    </MudText>
+                </MudPaper>
+
+                @if (_requestStatus is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.h6">Tenant request</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="@GetRequestColor(_requestStatus.Status)" Variant="Variant.Filled">
+                                @_requestStatus.Status
+                            </MudChip>
+                        </MudStack>
+
+                        <MudText Typo="Typo.body2" Class="callio-lead mt-3">
+                            @_requestStatus.TenantName
+                            <br />
+                            @_requestStatus.CompanyName
+                        </MudText>
+
+                        @if (!string.IsNullOrWhiteSpace(_requestStatus.SelectedPlanName))
+                        {
+                            <MudChip T="string" Class="mt-4" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                                @($"Selected plan: {_requestStatus.SelectedPlanName}")
+                            </MudChip>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(_requestStatus.DecisionNote))
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mt-4">
+                                @_requestStatus.DecisionNote
+                            </MudAlert>
+                        }
+                    </MudPaper>
+                }
+
+                @if (_provisioningStatus is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h6" GutterBottom="true">Provisioned resources</MudText>
+                        <div class="callio-detail-list mt-3">
+                            <div class="callio-detail-item">
+                                <span>Tenant database</span>
+                                <strong>@_provisioningStatus.DatabaseSchema</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Vector namespace</span>
+                                <strong>@_provisioningStatus.VectorStoreNamespace</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Attempts</span>
+                                <strong>@_provisioningStatus.AttemptCount</strong>
+                            </div>
+                        </div>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (_requestStatus is null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">No onboarding request found</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            This account does not have a tenant request yet. Start onboarding to register a customer user and submit the first tenant request.
+                        </MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-registration" Class="mt-4">
+                            Start onboarding
+                        </MudButton>
+                    </MudPaper>
+                }
+                else if (_session.TenantId is null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">Waiting for tenant approval</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            @GetPendingMessage(_requestStatus)
+                        </MudText>
+                    </MudPaper>
+                }
+                else if (_provisioningStatus is null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudText Typo="Typo.h5" GutterBottom="true">Tenant approved, provisioning status pending</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            Your tenant has been approved and linked to tenant #@_session.TenantId.Value. The infrastructure status will appear here as soon as the provisioning service publishes the latest run.
+                        </MudText>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <div>
+                                <MudText Typo="Typo.h5">Tenant infrastructure</MudText>
+                                <MudText Typo="Typo.body2" Class="callio-lead">
+                                    Current tenant: #@_provisioningStatus.TenantId
+                                </MudText>
+                            </div>
+                            <MudChip T="string" Size="Size.Medium" Color="@GetProvisioningColor(_provisioningStatus.Status)" Variant="Variant.Filled">
+                                @_provisioningStatus.Status
+                            </MudChip>
+                        </MudStack>
+
+                        @if (!string.IsNullOrWhiteSpace(_provisioningStatus.LastError))
+                        {
+                            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mt-4">
+                                @_provisioningStatus.LastError
+                            </MudAlert>
+                        }
+
+                        <MudTable Items="_provisioningStatus.Steps.OrderBy(x => x.Order)" Dense="true" Hover="true" Class="mt-4">
+                            <HeaderContent>
+                                <MudTh>Step</MudTh>
+                                <MudTh>Status</MudTh>
+                                <MudTh>Attempts</MudTh>
+                                <MudTh>Last completed</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd>@context.Name</MudTd>
+                                <MudTd>
+                                    <MudChip T="string" Size="Size.Small" Color="@GetProvisioningColor(context.Status)" Variant="Variant.Filled">
+                                        @context.Status
+                                    </MudChip>
+                                    @if (!string.IsNullOrWhiteSpace(context.LastError))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Error">@context.LastError</MudText>
+                                    }
+                                </MudTd>
+                                <MudTd>@context.AttemptCount</MudTd>
+                                <MudTd>@(context.LastCompletedAtUtc.HasValue ? FormatUtc(context.LastCompletedAtUtc.Value) : "Pending")</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+
+                        @if (_provisioningStatus.KnowledgeConfigurationSetup is not null)
+                        {
+                            <MudDivider Class="my-4" />
+                            <MudText Typo="Typo.h6">Knowledge configuration setup</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead mt-2">
+                                Status: @_provisioningStatus.KnowledgeConfigurationSetup.Status
+                            </MudText>
+                        }
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private PortalUserSession? _session;
+    private PortalTenantRequestStatusResponse? _requestStatus;
+    private PortalTenantProvisioningStatusResponse? _provisioningStatus;
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
     {
-        if (!CanLookup)
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        if (_session is null)
         {
-            _error = "Enter a tenant ID, or provide the request ID and email used when the request was created.";
+            _loading = false;
             return;
         }
-
-        _loading = true;
-        _error = null;
 
         try
         {
-            _status = _lookup.TenantId > 0
-                ? await TenantRequestApi.GetRequestStatusByTenantIdAsync(_lookup.TenantId)
-                : await TenantRequestApi.GetRequestStatusAsync(_lookup.RequestId, _lookup.Email!);
+            _requestStatus = await TenantRequestApi.GetCurrentRequestStatusAsync();
+
+            if (_session.TenantId is > 0)
+                _provisioningStatus = await TenantProvisioningApi.GetStatusAsync(_session.TenantId.Value);
         }
         catch (Exception ex)
         {
-            _status = null;
             _error = ex.Message;
         }
         finally
@@ -176,24 +220,28 @@
         }
     }
 
-    private static Color GetStatusColor(string status) => status switch
+    private static Color GetRequestColor(string status) => status switch
     {
         "Approved" => Color.Success,
         "Rejected" => Color.Error,
         _ => Color.Warning
     };
 
-    private static string GetStatusMessage(Callio.Client.Services.PortalTenantRequestStatusResponse status) => status.Status switch
+    private static Color GetProvisioningColor(string status) => status switch
     {
-        "Approved" => $"Your tenant request was approved{(status.TenantId.HasValue ? $" and linked to tenant #{status.TenantId.Value}." : ".")}",
-        "Rejected" => "Your tenant request was rejected. Review the admin note if one was provided before submitting again.",
-        _ => "Your tenant request is still pending dashboard review."
+        "Succeeded" => Color.Success,
+        "Failed" => Color.Error,
+        "InProgress" => Color.Info,
+        _ => Color.Warning
     };
 
-    private sealed class RequestLookupVm
+    private static string GetPendingMessage(PortalTenantRequestStatusResponse requestStatus) => requestStatus.Status switch
     {
-        public int TenantId { get; set; }
-        public int RequestId { get; set; }
-        public string? Email { get; set; }
-    }
+        "Rejected" => "The onboarding request was rejected. Review the decision note and submit a new request if the tenant should be retried.",
+        "Approved" => "The tenant request was approved. Tenant-specific provisioning details will appear here once the identity link refreshes into the workspace.",
+        _ => "The request is still in review. Once approved, the tenant workspace and provisioning details will light up automatically."
+    };
+
+    private static string FormatUtc(DateTime value)
+        => value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 }

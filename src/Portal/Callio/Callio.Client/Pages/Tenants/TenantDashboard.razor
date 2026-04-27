@@ -1,0 +1,165 @@
+@page "/tenant-dashboard"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject Callio.Client.Services.TenantRequestApi TenantRequestApi
+@inject Callio.Client.Services.TenantProvisioningApi TenantProvisioningApi
+@inject Callio.Client.Services.TenantKnowledgeDocumentsApi TenantKnowledgeDocumentsApi
+@inject Callio.Client.Services.TenantGenerationApi TenantGenerationApi
+@inject NavigationManager Navigation
+
+<PageTitle>Customer dashboard</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_error</MudAlert>
+    }
+
+    <MudPaper Class="callio-card callio-card-strong callio-hero" Elevation="0">
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <div class="callio-kicker">Tenant command center</div>
+                <MudText Typo="Typo.h3" GutterBottom="true">One workspace for provisioning, knowledge, prompts, and saved responses.</MudText>
+                <MudText Typo="Typo.body1" Class="callio-lead">
+                    Use this customer dashboard to follow onboarding progress, tune knowledge behavior, manage prompt storage, and review response history without jumping between tools.
+                </MudText>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <div class="callio-stat-row">
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Request</div>
+                        <div class="callio-stat-value">@(_requestStatus?.Status ?? "None")</div>
+                    </div>
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Provisioning</div>
+                        <div class="callio-stat-value">@(_provisioningStatus?.Status ?? "Pending")</div>
+                    </div>
+                    <div class="callio-stat">
+                        <div class="callio-stat-label">Tenant</div>
+                        <div class="callio-stat-value">@(_session.TenantId?.ToString() ?? "TBD")</div>
+                    </div>
+                </div>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <div class="callio-grid three mt-4">
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Provisioning</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Status: @(_provisioningStatus?.Status ?? _requestStatus?.Status ?? "Pending")
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-3">
+                Open provisioning
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Knowledge library</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Documents in library: @_documentCount
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-knowledge-library" Class="mt-3">
+                Open library
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Prompt storage</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Saved prompts: @_promptCount
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-generation-prompts" Class="mt-3">
+                Open prompt storage
+            </MudButton>
+        </MudPaper>
+    </div>
+
+    <div class="callio-grid three mt-4">
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Response storage</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Saved responses: @_responseCount
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-generation-responses" Class="mt-3">
+                Open response storage
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Knowledge settings</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                Review retrieval controls, chunking, file intake, and assistant prompts.
+            </MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-knowledge-settings" Class="mt-3">
+                Open settings
+            </MudButton>
+        </MudPaper>
+
+        <MudPaper Class="callio-card pa-5" Elevation="0">
+            <MudText Typo="Typo.h6" GutterBottom="true">Customer user</MudText>
+            <MudText Typo="Typo.body2" Class="callio-lead">
+                @_session.DisplayName
+                <br />
+                @_session.Email
+            </MudText>
+        </MudPaper>
+    </div>
+}
+
+@code {
+    private PortalUserSession? _session;
+    private PortalTenantRequestStatusResponse? _requestStatus;
+    private PortalTenantProvisioningStatusResponse? _provisioningStatus;
+    private bool _loading = true;
+    private string? _error;
+    private int _documentCount;
+    private int _promptCount;
+    private int _responseCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        if (_session is null)
+        {
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            _requestStatus = await TenantRequestApi.GetCurrentRequestStatusAsync();
+
+            if (_session.TenantId is > 0)
+            {
+                var tenantId = _session.TenantId.Value;
+                _provisioningStatus = await TenantProvisioningApi.GetStatusAsync(tenantId);
+                _documentCount = (await TenantKnowledgeDocumentsApi.GetDocumentsAsync(tenantId)).Count;
+                _promptCount = (await TenantGenerationApi.GetPromptsAsync(tenantId)).Count;
+                _responseCount = (await TenantGenerationApi.GetResponsesAsync(tenantId, 20)).Count;
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

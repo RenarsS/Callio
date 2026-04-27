@@ -29,11 +29,12 @@ public class TenantKnowledgeDocumentDbContext(
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema(SchemaName);
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeCategoryEntityConfiguration(SchemaName));
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeTagEntityConfiguration(SchemaName));
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentEntityConfiguration(SchemaName));
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentTagEntityConfiguration(SchemaName));
-        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentChunkEntityConfiguration(SchemaName));
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeCategoryEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeTagEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentTagEntityConfiguration());
+        modelBuilder.ApplyConfiguration(new TenantKnowledgeDocumentChunkEntityConfiguration());
     }
 }

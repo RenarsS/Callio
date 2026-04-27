@@ -16,6 +16,7 @@ public static class ProvisioningModuleExtensions
         services.Configure<TenantProvisioningOptions>(configuration.GetSection(TenantProvisioningOptions.SectionName));
 
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
+        services.AddSingleton<ITenantDatabaseConnectionStringFactory, TenantDatabaseConnectionStringFactory>();
         services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();
         services.AddScoped<ITenantVectorStoreProvisioner, DevelopmentTenantVectorStoreProvisioner>();
         services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();

@@ -1,0 +1,166 @@
+@page "/tenant-generation-responses"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using Callio.Client.Models
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject Callio.Client.Services.TenantGenerationApi TenantGenerationApi
+@inject NavigationManager Navigation
+
+<PageTitle>Response storage</PageTitle>
+
+@if (_loadingSession)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else if (_tenantId is null)
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudText Typo="Typo.h5" GutterBottom="true">Response storage unlocks after tenant approval</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            This account has not been linked to an approved tenant yet. Check provisioning to follow approval and infrastructure progress.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-4">
+            Open provisioning
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                <div class="callio-kicker">Response storage</div>
+                <MudText Typo="Typo.h4" GutterBottom="true">Review saved generation history for the tenant workspace.</MudText>
+                <MudText Typo="Typo.body2" Class="callio-lead">
+                    Every saved generation response is stored per tenant together with prompt context, model metadata, and the supporting sources used for the answer.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_error))
+                {
+                    <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+                }
+
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <div>
+                            <MudText Typo="Typo.h5">Saved responses</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead">
+                                Recent saved generations for tenant #@_tenantId.Value.
+                            </MudText>
+                        </div>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">
+                            Refresh
+                        </MudButton>
+                    </MudStack>
+
+                    @if (_responses.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            No saved responses exist for this tenant yet.
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudExpansionPanels MultiExpansion="true">
+                            @foreach (var response in _responses)
+                            {
+                                <MudExpansionPanel Text="@($"{response.PromptName} • {FormatUtc(response.CreatedAtUtc)}")">
+                                    <MudStack Spacing="2">
+                                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(response.Status)" Variant="Variant.Filled">
+                                            @response.Status
+                                        </MudChip>
+
+                                        <MudText Typo="Typo.subtitle2">Input</MudText>
+                                        <MudText Typo="Typo.body2" Class="callio-lead">@response.Input</MudText>
+
+                                        <MudText Typo="Typo.subtitle2">Response</MudText>
+                                        <MudText Typo="Typo.body2" Class="callio-lead">@response.ResponseText</MudText>
+
+                                        <MudText Typo="Typo.subtitle2">Prompt metadata</MudText>
+                                        <div class="callio-plan-card-quotas">
+                                            <div class="callio-plan-card-quota">@response.PromptKey</div>
+                                            <div class="callio-plan-card-quota">@response.GenerationModel</div>
+                                            <div class="callio-plan-card-quota">@($"Input tokens: {response.EstimatedInputTokens}")</div>
+                                            <div class="callio-plan-card-quota">@($"Output tokens: {response.EstimatedOutputTokens}")</div>
+                                        </div>
+
+                                        @if (response.Sources.Count > 0)
+                                        {
+                                            <MudText Typo="Typo.subtitle2" Class="mt-2">Supporting sources</MudText>
+                                            @foreach (var source in response.Sources)
+                                            {
+                                                <MudPaper Outlined="true" Class="pa-3">
+                                                    <MudText Typo="Typo.caption">@source.SourceKind</MudText>
+                                                    <MudText Typo="Typo.body2">@source.DocumentTitle</MudText>
+                                                    <MudText Typo="Typo.caption" Class="callio-lead">@source.ContentExcerpt</MudText>
+                                                </MudPaper>
+                                            }
+                                        }
+                                    </MudStack>
+                                </MudExpansionPanel>
+                            }
+                        </MudExpansionPanels>
+                    }
+                </MudPaper>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private PortalUserSession? _session;
+    private int? _tenantId;
+    private bool _loadingSession = true;
+    private string? _error;
+    private IReadOnlyList<PortalGenerationResponse> _responses = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        _tenantId = _session?.TenantId;
+        _loadingSession = false;
+
+        if (_tenantId is > 0)
+            await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_tenantId is not > 0)
+            return;
+
+        try
+        {
+            _responses = await TenantGenerationApi.GetResponsesAsync(_tenantId.Value, 25);
+            _error = null;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private static string FormatUtc(DateTime value)
+        => value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Completed" => Color.Success,
+        "Failed" => Color.Error,
+        _ => Color.Info
+    };
+}

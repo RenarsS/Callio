@@ -1,4 +1,5 @@
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Generation.Infrastructure.Provisioners;
 using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -11,6 +12,8 @@ internal sealed class TenantSchemaMigrationRunner(
     AdminDbContext adminDbContext,
     ProvisioningDbContext provisioningDbContext,
     ITenantKnowledgeConfigurationStoreProvisioner tenantKnowledgeConfigurationStoreProvisioner,
+    ITenantKnowledgeDocumentStoreProvisioner tenantKnowledgeDocumentStoreProvisioner,
+    ITenantGenerationStoreProvisioner tenantGenerationStoreProvisioner,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     ILogger<TenantSchemaMigrationRunner> logger)
 {
@@ -43,7 +46,7 @@ internal sealed class TenantSchemaMigrationRunner(
 
             schemaNames.Add(schemaName);
             logger.LogInformation(
-                "Mapped tenant {TenantId} to schema '{SchemaName}' for migration.",
+                "Mapped tenant {TenantId} to tenant schema '{SchemaName}' for migration.",
                 tenantId,
                 schemaName);
         }
@@ -52,6 +55,8 @@ internal sealed class TenantSchemaMigrationRunner(
         {
             logger.LogInformation("Ensuring tenant schema '{SchemaName}' is up to date.", schemaName);
             await tenantKnowledgeConfigurationStoreProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
+            await tenantKnowledgeDocumentStoreProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
+            await tenantGenerationStoreProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
         }
 
         return schemaNames.Count;

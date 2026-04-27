@@ -1,6 +1,8 @@
 @page "/tenant-registration"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inject Callio.Client.Services.TenantRequestApi TenantRequestApi
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject NavigationManager Navigation
 
 <PageTitle>Start onboarding</PageTitle>
 
@@ -140,7 +142,7 @@
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" ButtonType="ButtonType.Button" Disabled="@(_submitting || !CanSubmit)" OnClick="SubmitAsync">
                         @(_submitting ? "Submitting..." : "Register user and submit tenant request")
                     </MudButton>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-request-status">Check existing request</MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/login">Sign in</MudButton>
                 </MudStack>
             </MudPaper>
 
@@ -164,7 +166,7 @@
                     }
 
                     <MudStack Row="true" Spacing="2" Class="mt-4">
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@StatusHref">Open request status</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-dashboard">Open customer dashboard</MudButton>
                         <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/">Back to overview</MudButton>
                     </MudStack>
                 </MudPaper>
@@ -192,11 +194,6 @@
         !_plansLoading &&
         string.IsNullOrWhiteSpace(_planLoadError) &&
         (_plans.Count == 0 || _model.SelectedPlanId.HasValue);
-
-    private string StatusHref =>
-        _result is null
-            ? "/tenant-request-status"
-            : $"/tenant-request-status?requestId={_result.TenantRequestId}&email={Uri.EscapeDataString(_result.Email)}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -257,6 +254,9 @@
                 _model.TenantName,
                 _model.SelectedPlanId,
                 _model.Notes));
+
+            await PortalSessionService.LoginAsync(_model.Email, _model.Password);
+            Navigation.NavigateTo("/tenant-dashboard", replace: true);
         }
         catch (Exception ex)
         {

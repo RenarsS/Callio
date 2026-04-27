@@ -127,5 +127,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("LocalDevCors");
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.Run();

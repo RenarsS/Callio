@@ -4,12 +4,35 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Callio.Generation.Infrastructure.Persistence;
 
-public class TenantGenerationResponseEntityConfiguration(string schemaName)
+public class TenantGenerationPromptTemplateEntityConfiguration
+    : IEntityTypeConfiguration<TenantGenerationPromptTemplate>
+{
+    public void Configure(EntityTypeBuilder<TenantGenerationPromptTemplate> builder)
+    {
+        builder.ToTable(TenantGenerationDbContext.PromptTemplatesTableName);
+
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.TenantId).IsRequired();
+        builder.Property(x => x.Key).HasColumnName("PromptKey").HasMaxLength(120).IsRequired();
+        builder.Property(x => x.Name).HasColumnName("PromptName").HasMaxLength(200).IsRequired();
+        builder.Property(x => x.Description).HasMaxLength(1000);
+        builder.Property(x => x.SystemPrompt).HasColumnType("nvarchar(max)").IsRequired();
+        builder.Property(x => x.UserPromptTemplate).HasColumnType("nvarchar(max)").IsRequired();
+        builder.Property(x => x.DataSourcesJson).HasColumnType("nvarchar(max)").IsRequired();
+        builder.Property(x => x.CreatedAtUtc).IsRequired();
+        builder.Property(x => x.UpdatedAtUtc).IsRequired();
+
+        builder.HasIndex(x => x.Key).IsUnique();
+        builder.HasIndex(x => x.UpdatedAtUtc);
+    }
+}
+
+public class TenantGenerationResponseEntityConfiguration
     : IEntityTypeConfiguration<TenantGenerationResponse>
 {
     public void Configure(EntityTypeBuilder<TenantGenerationResponse> builder)
     {
-        builder.ToTable(TenantGenerationDbContext.ResponsesTableName, schemaName);
+        builder.ToTable(TenantGenerationDbContext.ResponsesTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.ResponseKey).IsRequired();
@@ -38,12 +61,12 @@ public class TenantGenerationResponseEntityConfiguration(string schemaName)
     }
 }
 
-public class TenantGenerationResponseSourceEntityConfiguration(string schemaName)
+public class TenantGenerationResponseSourceEntityConfiguration
     : IEntityTypeConfiguration<TenantGenerationResponseSource>
 {
     public void Configure(EntityTypeBuilder<TenantGenerationResponseSource> builder)
     {
-        builder.ToTable(TenantGenerationDbContext.ResponseSourcesTableName, schemaName);
+        builder.ToTable(TenantGenerationDbContext.ResponseSourcesTableName);
 
         builder.HasKey(x => x.Id);
         builder.Property(x => x.SourceKind).HasConversion<string>().HasMaxLength(32).IsRequired();

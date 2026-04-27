@@ -1,6 +1,8 @@
 using Carter;
 using Callio.Admin.API.Contracts.Tenants;
 using Callio.Admin.Application.Tenants;
+using Callio.Core.Domain.Constants.Identity;
+using Callio.Core.Domain.Identity;
 using Callio.Admin.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -38,20 +40,65 @@ public class TenantModule : ICarterModule
             }
         });
 
-        portal.MapGet("/tenant-requests/{requestId:int}", async (int requestId, string email, ITenantRequestService service, CancellationToken cancellationToken) =>
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return Results.BadRequest("Email is required.");
+        portal.MapGet("/me", async (
+                HttpContext httpContext,
+                IPortalUserContextAccessor portalUserContextAccessor,
+                CancellationToken cancellationToken) =>
+            {
+                var currentUser = await portalUserContextAccessor.GetCurrentAsync(httpContext.User, cancellationToken);
+                return currentUser is null
+                    ? Results.Unauthorized()
+                    : Results.Ok(new PortalUserProfileResponse(
+                        currentUser.UserId,
+                        currentUser.Email,
+                        currentUser.DisplayName,
+                        currentUser.UserType,
+                        currentUser.TenantId));
+            })
+            .RequireAuthorization(AppPolicies.PortalUser);
 
-            var result = await service.GetPortalStatusAsync(requestId, email, cancellationToken);
-            return result is null ? Results.NotFound() : Results.Ok(result);
-        });
+        portal.MapGet("/tenant-requests/current", async (
+                ITenantRequestService service,
+                HttpContext httpContext,
+                IPortalUserContextAccessor portalUserContextAccessor,
+                CancellationToken cancellationToken) =>
+            {
+                var currentUser = await portalUserContextAccessor.GetCurrentAsync(httpContext.User, cancellationToken);
+                if (currentUser is null)
+                    return Results.Unauthorized();
 
-        portal.MapGet("/tenant-requests/by-tenant/{tenantId:int}", async (int tenantId, ITenantRequestService service, CancellationToken cancellationToken) =>
+                var result = await service.GetLatestPortalStatusForUserAsync(currentUser.UserId, cancellationToken);
+                return result is null ? Results.NotFound() : Results.Ok(result);
+            })
+            .RequireAuthorization(AppPolicies.PortalUser);
+
+        portal.MapGet("/tenant-requests/{requestId:int}", async (int requestId, ITenantRequestService service, HttpContext httpContext, IPortalUserContextAccessor portalUserContextAccessor, CancellationToken cancellationToken) =>
         {
+            var currentUser = await portalUserContextAccessor.GetCurrentAsync(httpContext.User, cancellationToken);
+            if (currentUser is null)
+                return Results.Unauthorized();
+
+            var result = await service.GetPortalStatusAsync(requestId, currentUser.Email, cancellationToken);
+            if (result is null)
+                return Results.NotFound();
+
+            return string.Equals(result.RequestedByEmail, currentUser.Email, StringComparison.OrdinalIgnoreCase)
+                ? Results.Ok(result)
+                : Results.Forbid();
+        }).RequireAuthorization(AppPolicies.PortalUser);
+
+        portal.MapGet("/tenant-requests/by-tenant/{tenantId:int}", async (int tenantId, ITenantRequestService service, HttpContext httpContext, IPortalUserContextAccessor portalUserContextAccessor, CancellationToken cancellationToken) =>
+        {
+            var currentUser = await portalUserContextAccessor.GetCurrentAsync(httpContext.User, cancellationToken);
+            if (currentUser is null)
+                return Results.Unauthorized();
+
+            if (currentUser.TenantId != tenantId)
+                return Results.Forbid();
+
             var result = await service.GetPortalStatusByTenantIdAsync(tenantId, cancellationToken);
             return result is null ? Results.NotFound() : Results.Ok(result);
-        });
+        }).RequireAuthorization(AppPolicies.PortalUser);
 
         var dashboard = app.MapGroup("api/dashboard").WithTags("Dashboard Tenants");
         dashboard.MapGet("/tenant-requests", async (ITenantRequestService service, CancellationToken cancellationToken) =>
@@ -112,3 +159,10 @@ public class TenantModule : ICarterModule
         });
     }
 }
+
+public record PortalUserProfileResponse(
+    string UserId,
+    string Email,
+    string DisplayName,
+    string UserType,
+    int? TenantId);

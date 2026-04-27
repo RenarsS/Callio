@@ -11,14 +11,14 @@ public class SqlServerKnowledgeMetadataStoreProvisioner(IConfiguration configura
     public async Task EnsureCreatedAsync(CancellationToken cancellationToken = default)
     {
         var commandText = """
-IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'provisioning')
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'knowledge')
 BEGIN
-    EXEC(N'CREATE SCHEMA [provisioning] AUTHORIZATION [dbo]');
+    EXEC(N'CREATE SCHEMA [knowledge] AUTHORIZATION [dbo]');
 END
 
-IF OBJECT_ID(N'[provisioning].[TenantKnowledgeConfigurationSetups]', N'U') IS NULL
+IF OBJECT_ID(N'[knowledge].[TenantKnowledgeConfigurationSetups]', N'U') IS NULL
 BEGIN
-    CREATE TABLE [provisioning].[TenantKnowledgeConfigurationSetups]
+    CREATE TABLE [knowledge].[TenantKnowledgeConfigurationSetups]
     (
         [Id] INT IDENTITY(1,1) NOT NULL CONSTRAINT [PK_TenantKnowledgeConfigurationSetups] PRIMARY KEY,
         [TenantId] INT NOT NULL,
@@ -38,11 +38,11 @@ IF NOT EXISTS
     SELECT 1
     FROM sys.indexes
     WHERE name = N'IX_TenantKnowledgeConfigurationSetups_TenantId'
-      AND object_id = OBJECT_ID(N'[provisioning].[TenantKnowledgeConfigurationSetups]', N'U')
+      AND object_id = OBJECT_ID(N'[knowledge].[TenantKnowledgeConfigurationSetups]', N'U')
 )
 BEGIN
     CREATE UNIQUE INDEX [IX_TenantKnowledgeConfigurationSetups_TenantId]
-        ON [provisioning].[TenantKnowledgeConfigurationSetups] ([TenantId]);
+        ON [knowledge].[TenantKnowledgeConfigurationSetups] ([TenantId]);
 END
 """;
 

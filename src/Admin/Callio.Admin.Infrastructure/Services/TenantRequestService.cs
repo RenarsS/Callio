@@ -28,7 +28,7 @@ public class TenantRequestService(
         if (existingUser is not null)
             throw new InvalidOperationException("A user with this email already exists.");
 
-        var user = ApplicationUser.CreatePowerUser(command.Email, command.FirstName, command.LastName);
+        var user = ApplicationUser.CreateTenantUser(command.Email, command.FirstName, command.LastName);
         var createUserResult = await userManager.CreateAsync(user, command.Password);
         if (!createUserResult.Succeeded)
         {
@@ -92,6 +92,19 @@ public class TenantRequestService(
         var request = await adminDbContext.TenantCreationRequests
             .AsNoTracking()
             .Where(x => x.TenantId == tenantId)
+            .OrderByDescending(x => x.ProcessedAtUtc ?? x.RequestedAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return request is null ? null : MapPortalStatus(request);
+    }
+
+    public async Task<PortalTenantRequestStatusDto?> GetLatestPortalStatusForUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        var request = await adminDbContext.TenantCreationRequests
+            .AsNoTracking()
+            .Where(x => x.RequestedByUserId == userId)
             .OrderByDescending(x => x.ProcessedAtUtc ?? x.RequestedAtUtc)
             .FirstOrDefaultAsync(cancellationToken);
 

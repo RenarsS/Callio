@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Callio.Knowledge.Infrastructure.Persistence;
 
-public class TenantKnowledgeConfigurationEntityConfiguration(string schemaName)
+public class TenantKnowledgeConfigurationEntityConfiguration
     : IEntityTypeConfiguration<TenantKnowledgeConfiguration>
 {
     private static readonly ValueConverter<List<string>, string> AllowedFileTypesConverter = new(
@@ -33,7 +33,7 @@ public class TenantKnowledgeConfigurationEntityConfiguration(string schemaName)
 
     public void Configure(EntityTypeBuilder<TenantKnowledgeConfiguration> builder)
     {
-        builder.ToTable(TenantKnowledgeConfigurationDbContext.TableName, schemaName);
+        builder.ToTable(TenantKnowledgeConfigurationDbContext.TableName);
 
         builder.HasKey(x => x.Id);
 

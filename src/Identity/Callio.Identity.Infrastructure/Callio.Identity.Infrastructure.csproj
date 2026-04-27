@@ -21,6 +21,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\..\Core\Callio.Core.Domain\Callio.Core.Domain.csproj" />
       <ProjectReference Include="..\..\Core\Callio.Core.Infrastructure\Callio.Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Callio.Identity.Domain\Callio.Identity.Domain.csproj" />
     </ItemGroup>

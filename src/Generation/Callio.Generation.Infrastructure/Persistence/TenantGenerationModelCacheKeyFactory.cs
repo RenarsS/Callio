@@ -5,11 +5,12 @@ namespace Callio.Generation.Infrastructure.Persistence;
 
 public class TenantGenerationModelCacheKeyFactory : IModelCacheKeyFactory
 {
+    public object Create(DbContext context)
+        => Create(context, false);
+
     public object Create(DbContext context, bool designTime)
     {
-        if (context is TenantGenerationDbContext tenantContext)
-            return (context.GetType(), tenantContext.SchemaName, designTime);
-
-        return (context.GetType(), designTime);
+        var tenantContext = (TenantGenerationDbContext)context;
+        return (context.GetType(), tenantContext.SchemaName, designTime);
     }
 }

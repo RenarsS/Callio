@@ -1,4 +1,5 @@
 using Callio.Generation.Domain;
+using System.Text.Json;
 
 namespace Callio.Generation.Application.Generation;
 
@@ -23,6 +24,29 @@ public record GenerationDataSourceSelectionDto(
     bool IncludeBlobContent);
 
 public record GenerationPromptTemplateDto(
+    int Id,
+    int TenantId,
+    string Key,
+    string Name,
+    string? Description,
+    string SystemPrompt,
+    string UserPromptTemplate,
+    IReadOnlyList<GenerationDataSourceSelectionDto> DataSources,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc);
+
+public record CreateTenantGenerationPromptTemplateCommand(
+    int TenantId,
+    string Key,
+    string Name,
+    string? Description,
+    string SystemPrompt,
+    string UserPromptTemplate,
+    IReadOnlyList<GenerationDataSourceSelectionDto> DataSources);
+
+public record UpdateTenantGenerationPromptTemplateCommand(
+    int TenantId,
+    int PromptTemplateId,
     string Key,
     string Name,
     string? Description,
@@ -96,6 +120,21 @@ public record GetTenantGenerationResponsesQuery(int? Take);
 
 public static class TenantGenerationMappings
 {
+    private static readonly JsonSerializerOptions PromptTemplateJsonOptions = new(JsonSerializerDefaults.Web);
+
+    public static GenerationPromptTemplateDto ToDto(this TenantGenerationPromptTemplate promptTemplate)
+        => new(
+            promptTemplate.Id,
+            promptTemplate.TenantId,
+            promptTemplate.Key,
+            promptTemplate.Name,
+            promptTemplate.Description,
+            promptTemplate.SystemPrompt,
+            promptTemplate.UserPromptTemplate,
+            DeserializeDataSources(promptTemplate.DataSourcesJson),
+            promptTemplate.CreatedAtUtc,
+            promptTemplate.UpdatedAtUtc);
+
     public static GenerationResponseDto ToDto(this TenantGenerationResponse response)
         => new(
             response.Id,
@@ -135,4 +174,22 @@ public static class TenantGenerationMappings
                     x.BlobUri,
                     x.ContentExcerpt))
                 .ToList());
+
+    public static string SerializeDataSources(IReadOnlyList<GenerationDataSourceSelectionDto> dataSources)
+        => JsonSerializer.Serialize(dataSources ?? [], PromptTemplateJsonOptions);
+
+    public static IReadOnlyList<GenerationDataSourceSelectionDto> DeserializeDataSources(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<List<GenerationDataSourceSelectionDto>>(json, PromptTemplateJsonOptions) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 }

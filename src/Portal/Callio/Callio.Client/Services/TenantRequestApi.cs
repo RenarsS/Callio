@@ -35,6 +35,27 @@ public class TenantRequestApi(HttpClient httpClient)
                ?? throw new InvalidOperationException("Tenant request status response was empty.");
     }
 
+    public async Task<PortalCurrentUserResponse> GetCurrentUserAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.GetAsync("/api/portal/me", cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        return await response.Content.ReadFromJsonAsync<PortalCurrentUserResponse>(cancellationToken)
+               ?? throw new InvalidOperationException("Portal user profile response was empty.");
+    }
+
+    public async Task<PortalTenantRequestStatusResponse?> GetCurrentRequestStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.GetAsync("/api/portal/tenant-requests/current", cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            return null;
+
+        await EnsureSuccessAsync(response, cancellationToken);
+
+        return await response.Content.ReadFromJsonAsync<PortalTenantRequestStatusResponse>(cancellationToken)
+               ?? throw new InvalidOperationException("Tenant request status response was empty.");
+    }
+
     private static Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
         => PortalApiResponseHelper.EnsureSuccessAsync(response, cancellationToken);
 }
@@ -73,3 +94,10 @@ public record PortalTenantRequestStatusResponse(
     int? TenantId,
     int? SelectedPlanId,
     string? SelectedPlanName);
+
+public record PortalCurrentUserResponse(
+    string UserId,
+    string Email,
+    string DisplayName,
+    string UserType,
+    int? TenantId);

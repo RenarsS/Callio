@@ -1,0 +1,256 @@
+@page "/tenant-generation-prompts"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using Callio.Client.Models
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject Callio.Client.Services.TenantGenerationApi TenantGenerationApi
+@inject NavigationManager Navigation
+
+<PageTitle>Prompt storage</PageTitle>
+
+@if (_loadingSession)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else if (_tenantId is null)
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudText Typo="Typo.h5" GutterBottom="true">Prompt storage unlocks after tenant approval</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            This account has not been linked to an approved tenant yet. Check provisioning to follow approval and infrastructure progress.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-4">
+            Open provisioning
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                    <div class="callio-kicker">Prompt storage</div>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Persist tenant prompt templates in the tenant database.</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">
+                        These templates are now tenant-specific records, not shared application configuration, so each customer can tune prompt behavior independently.
+                    </MudText>
+                </MudPaper>
+
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h6">Saved templates</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            @_prompts.Count prompt(s)
+                        </MudChip>
+                    </MudStack>
+
+                    <MudList T="PortalGenerationPromptResponse" Dense="true" Class="mt-3">
+                        @foreach (var prompt in _prompts)
+                        {
+                            <MudListItem T="PortalGenerationPromptResponse" Value="prompt" OnClick="@(() => SelectPrompt(prompt))">
+                                <MudText Typo="Typo.subtitle2">@prompt.Name</MudText>
+                                <MudText Typo="Typo.caption">@prompt.Key</MudText>
+                            </MudListItem>
+                        }
+                    </MudList>
+
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="StartNewPromptAsync" Class="mt-4">
+                        New prompt
+                    </MudButton>
+                </MudPaper>
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+                {
+                    <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
+                }
+
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <MudText Typo="Typo.h5" GutterBottom="true">@(_selectedPromptId.HasValue ? "Edit prompt template" : "Create prompt template")</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">
+                        Prompt data sources stay on the tenant knowledge chunk default unless your team expands them later through the API.
+                    </MudText>
+
+                    <MudGrid Class="mt-2">
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_editor.Key" Label="Prompt key" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudTextField @bind-Value="_editor.Name" Label="Prompt name" Variant="Variant.Outlined" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editor.Description" Label="Description" Variant="Variant.Outlined" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editor.SystemPrompt" Label="System prompt" Variant="Variant.Outlined" Lines="6" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudTextField @bind-Value="_editor.UserPromptTemplate" Label="User prompt template" Variant="Variant.Outlined" Lines="8" Required="true" />
+                        </MudItem>
+                    </MudGrid>
+
+                    <MudStack Row="true" Spacing="2" Class="mt-5">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_saving || !CanSave)" OnClick="SaveAsync">
+                            @(_saving ? "Saving..." : "Save prompt")
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_saving" OnClick="LoadAsync">
+                            Refresh
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private static readonly IReadOnlyList<PortalGenerationDataSourceResponse> DefaultDataSources =
+    [
+        new PortalGenerationDataSourceResponse("KnowledgeChunk", null, null, null, null, null, null, false)
+    ];
+
+    private PortalUserSession? _session;
+    private int? _tenantId;
+    private bool _loadingSession = true;
+    private bool _saving;
+    private string? _feedbackMessage;
+    private Severity _feedbackSeverity = Severity.Info;
+    private IReadOnlyList<PortalGenerationPromptResponse> _prompts = [];
+    private int? _selectedPromptId;
+    private IReadOnlyList<PortalGenerationDataSourceResponse> _selectedDataSources = DefaultDataSources;
+    private readonly PromptEditorVm _editor = new();
+
+    private bool CanSave =>
+        !string.IsNullOrWhiteSpace(_editor.Key) &&
+        !string.IsNullOrWhiteSpace(_editor.Name) &&
+        !string.IsNullOrWhiteSpace(_editor.SystemPrompt) &&
+        !string.IsNullOrWhiteSpace(_editor.UserPromptTemplate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        _tenantId = _session?.TenantId;
+        _loadingSession = false;
+
+        if (_tenantId is > 0)
+            await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_tenantId is not > 0)
+            return;
+
+        try
+        {
+            _prompts = await TenantGenerationApi.GetPromptsAsync(_tenantId.Value);
+
+            if (_selectedPromptId.HasValue)
+            {
+                var selected = _prompts.FirstOrDefault(x => x.Id == _selectedPromptId.Value);
+                if (selected is not null)
+                    SelectPrompt(selected);
+            }
+            else if (_prompts.Count > 0)
+            {
+                SelectPrompt(_prompts[0]);
+            }
+            else
+            {
+                await StartNewPromptAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            SetFeedback(Severity.Error, ex.Message);
+        }
+    }
+
+    private Task StartNewPromptAsync()
+    {
+        _selectedPromptId = null;
+        _selectedDataSources = DefaultDataSources;
+        _editor.Key = "tenant-answer";
+        _editor.Name = "Tenant answer";
+        _editor.Description = "Tenant-specific answer template.";
+        _editor.SystemPrompt = "You are the tenant assistant. Use approved tenant context only and say when the knowledge base is incomplete.";
+        _editor.UserPromptTemplate = "Question:\n{{input}}\n\nTenant instructions:\n{{assistantInstructionPrompt}}\n\nRetrieved context:\n{{context}}\n\nWrite a concise answer and cite the sources you used.";
+        return Task.CompletedTask;
+    }
+
+    private void SelectPrompt(PortalGenerationPromptResponse prompt)
+    {
+        _selectedPromptId = prompt.Id;
+        _selectedDataSources = prompt.DataSources.Count > 0 ? prompt.DataSources : DefaultDataSources;
+        _editor.Key = prompt.Key;
+        _editor.Name = prompt.Name;
+        _editor.Description = prompt.Description;
+        _editor.SystemPrompt = prompt.SystemPrompt;
+        _editor.UserPromptTemplate = prompt.UserPromptTemplate;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (!CanSave || _tenantId is not > 0)
+            return;
+
+        _saving = true;
+        _feedbackMessage = null;
+
+        try
+        {
+            var request = new Callio.Client.Services.SavePortalGenerationPromptRequest(
+                _editor.Key.Trim(),
+                _editor.Name.Trim(),
+                string.IsNullOrWhiteSpace(_editor.Description) ? null : _editor.Description.Trim(),
+                _editor.SystemPrompt.Trim(),
+                _editor.UserPromptTemplate.Trim(),
+                _selectedDataSources);
+
+            var saved = _selectedPromptId.HasValue
+                ? await TenantGenerationApi.UpdatePromptAsync(_tenantId.Value, _selectedPromptId.Value, request)
+                : await TenantGenerationApi.CreatePromptAsync(_tenantId.Value, request);
+
+            SelectPrompt(saved);
+            await LoadAsync();
+            SetFeedback(Severity.Success, "Prompt storage updated for this tenant.");
+        }
+        catch (Exception ex)
+        {
+            SetFeedback(Severity.Error, ex.Message);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void SetFeedback(Severity severity, string message)
+    {
+        _feedbackSeverity = severity;
+        _feedbackMessage = message;
+    }
+
+    private sealed class PromptEditorVm
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string SystemPrompt { get; set; } = string.Empty;
+        public string UserPromptTemplate { get; set; } = string.Empty;
+    }
+}

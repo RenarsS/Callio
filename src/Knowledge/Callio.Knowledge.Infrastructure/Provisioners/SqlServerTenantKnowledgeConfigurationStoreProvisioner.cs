@@ -1,17 +1,14 @@
 using Callio.Knowledge.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
+using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Configuration;
 
 namespace Callio.Knowledge.Infrastructure.Provisioners;
 
 public class SqlServerTenantKnowledgeConfigurationStoreProvisioner(
-    IConfiguration configuration,
+    ITenantDatabaseConnectionStringFactory connectionStringFactory,
     ITenantDatabaseSchemaProvisioner tenantDatabaseSchemaProvisioner) : ITenantKnowledgeConfigurationStoreProvisioner
 {
-    private readonly string _connectionString = configuration.GetConnectionString("CallioTenantsDb")
-        ?? throw new InvalidOperationException("A CallioTenantsDb connection string is required for tenant knowledge configuration storage.");
-
     public async Task EnsureCreatedAsync(string schemaName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(schemaName))
@@ -19,16 +16,16 @@ public class SqlServerTenantKnowledgeConfigurationStoreProvisioner(
 
         await tenantDatabaseSchemaProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
 
-        var escapedSchemaName = schemaName.Replace("]", "]]", StringComparison.Ordinal);
+        var escapedSchemaName = schemaName.Trim().Replace("]", "]]", StringComparison.Ordinal);
         var escapedTableName = TenantKnowledgeConfigurationDbContext.TableName.Replace("]", "]]", StringComparison.Ordinal);
-        var activeIndexName = $"IX_{escapedSchemaName}_{escapedTableName}_Active";
+        const string activeIndexName = "IX_KnowledgeConfigurations_Active";
 
         var commandText = $"""
 IF OBJECT_ID(N'[{escapedSchemaName}].[{escapedTableName}]', N'U') IS NULL
 BEGIN
     CREATE TABLE [{escapedSchemaName}].[{escapedTableName}]
     (
-        [Id] INT IDENTITY(1,1) NOT NULL CONSTRAINT [PK_{escapedSchemaName}_{escapedTableName}] PRIMARY KEY,
+        [Id] INT IDENTITY(1,1) NOT NULL CONSTRAINT [PK_{escapedTableName}] PRIMARY KEY,
         [TenantId] INT NOT NULL,
         [SystemPrompt] NVARCHAR(MAX) NOT NULL,
         [AssistantInstructionPrompt] NVARCHAR(MAX) NOT NULL,
@@ -60,7 +57,7 @@ BEGIN
 END
 """;
 
-        await using var connection = new SqlConnection(_connectionString);
+        await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
         await connection.OpenAsync(cancellationToken);
 
         await using var command = new SqlCommand(commandText, connection);
