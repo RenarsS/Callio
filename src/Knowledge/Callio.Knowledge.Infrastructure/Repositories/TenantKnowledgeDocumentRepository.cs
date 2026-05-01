@@ -142,6 +142,21 @@ public class TenantKnowledgeDocumentRepository(
             .FirstAsync(x => x.Id == document.Id, cancellationToken);
     }
 
+    public async Task<TenantKnowledgeDocument> UpdateDocumentAsync(TenantKnowledgeDocument document, CancellationToken cancellationToken = default)
+    {
+        await using var context = await CreateContextAsync(document.TenantId, cancellationToken);
+        context.Documents.Update(document);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return await context.Documents
+            .AsNoTracking()
+            .Include(x => x.Category)
+            .Include(x => x.DocumentTags)
+                .ThenInclude(x => x.Tag)
+            .Include(x => x.Chunks)
+            .FirstAsync(x => x.Id == document.Id, cancellationToken);
+    }
+
     public async Task<string> ResolveVectorNamespaceAsync(int tenantId, CancellationToken cancellationToken = default)
     {
         var provisioning = await provisioningDbContext.TenantInfrastructureProvisionings

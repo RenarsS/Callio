@@ -18,7 +18,10 @@ public static class ProvisioningModuleExtensions
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddSingleton<ITenantDatabaseConnectionStringFactory, TenantDatabaseConnectionStringFactory>();
         services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();
-        services.AddScoped<ITenantVectorStoreProvisioner, DevelopmentTenantVectorStoreProvisioner>();
+        services.AddSingleton<TenantVectorStoreCosmosContext>();
+        services.AddScoped<DevelopmentTenantVectorStoreProvisioner>();
+        services.AddScoped<AzureCosmosTenantVectorStoreProvisioner>();
+        services.AddScoped<ITenantVectorStoreProvisioner, TenantVectorStoreProvisioner>();
         services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();
 
         services.AddDbContext<ProvisioningDbContext>(options =>

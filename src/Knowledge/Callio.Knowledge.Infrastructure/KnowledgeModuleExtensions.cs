@@ -34,6 +34,10 @@ public static class KnowledgeModuleExtensions
         services.AddScoped<ITenantKnowledgeConfigurationSetupService, TenantKnowledgeConfigurationSetupService>();
         services.AddScoped<ITenantKnowledgeDocumentService, TenantKnowledgeDocumentService>();
         services.AddScoped<ITenantKnowledgeDashboardService, TenantKnowledgeDashboardService>();
+        services.AddScoped<ITenantKnowledgeVectorStore, TenantKnowledgeVectorStore>();
+        services.AddScoped<ITenantKnowledgeFileMetadataFactory, TenantKnowledgeFileMetadataFactory>();
+        services.AddScoped<ITenantKnowledgeDocumentChunker, TenantKnowledgeDocumentChunker>();
+        services.AddScoped<ITenantKnowledgeDocumentProcessor, TenantKnowledgeDocumentProcessor>();
         services.AddSingleton<ITenantKnowledgeConfigurationDbContextFactory, TenantKnowledgeConfigurationDbContextFactory>();
         services.AddSingleton<ITenantKnowledgeDocumentDbContextFactory, TenantKnowledgeDocumentDbContextFactory>();
         services.AddScoped<FileSystemTenantKnowledgeBlobStorage>();

@@ -32,5 +32,7 @@ public interface ITenantKnowledgeDocumentRepository
 
     Task<TenantKnowledgeDocument> AddDocumentAsync(TenantKnowledgeDocument document, CancellationToken cancellationToken = default);
 
+    Task<TenantKnowledgeDocument> UpdateDocumentAsync(TenantKnowledgeDocument document, CancellationToken cancellationToken = default);
+
     Task<string> ResolveVectorNamespaceAsync(int tenantId, CancellationToken cancellationToken = default);
 }

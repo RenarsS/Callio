@@ -3,11 +3,9 @@ using Callio.Knowledge.Application.KnowledgeConfigurations;
 using Callio.Knowledge.Application.KnowledgeDocuments;
 using Callio.Knowledge.Domain;
 using Callio.Knowledge.Domain.Enums;
+using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
@@ -15,8 +13,9 @@ public class TenantKnowledgeDocumentService(
     ITenantKnowledgeDocumentRepository repository,
     ITenantKnowledgeConfigurationService knowledgeConfigurationService,
     ITenantKnowledgeBlobStorage blobStorage,
-    ITenantKnowledgeTextExtractor textExtractor,
-    ITenantEmbeddingGenerator embeddingGenerator,
+    ITenantKnowledgeFileMetadataFactory metadataFactory,
+    ITenantKnowledgeDocumentProcessor documentProcessor,
+    ITenantKnowledgeVectorStore vectorStore,
     AdminDbContext adminDbContext,
     ILogger<TenantKnowledgeDocumentService> logger) : ITenantKnowledgeDocumentService
 {
@@ -131,37 +130,33 @@ public class TenantKnowledgeDocumentService(
 
         var configuration = await GetOrCreateConfigurationAsync(command.TenantId, cancellationToken);
         var fileExtension = ValidateUploadAgainstConfiguration(command, configuration);
-        var contentType = string.IsNullOrWhiteSpace(command.ContentType)
-            ? "application/octet-stream"
-            : command.ContentType.Trim();
-
         var category = await ResolveCategoryAsync(command, cancellationToken);
         var tags = await ResolveTagsAsync(command, cancellationToken);
         var vectorNamespace = await repository.ResolveVectorNamespaceAsync(command.TenantId, cancellationToken);
-        var contentHash = ComputeSha256(command.Content);
+        var sectionKey = TenantVectorStoreCosmosContext.BuildSectionKey(category?.Id);
+        var metadata = metadataFactory.Create(command, category, tags);
 
-        var blobMetadata = BuildBlobMetadata(command, category, tags);
         var blob = await blobStorage.UploadAsync(
             command.TenantId,
             command.FileName,
-            contentType,
+            metadata.ContentType,
             command.Content,
-            blobMetadata,
+            metadata.BlobMetadata,
             cancellationToken);
 
         var document = new TenantKnowledgeDocument(
             command.TenantId,
             configuration.Id,
             category?.Id,
-            ResolveTitle(command.Title, command.FileName),
+            metadata.Title,
             command.FileName,
-            contentType,
+            metadata.ContentType,
             fileExtension,
             command.Content.LongLength,
             blob.ContainerName,
             blob.BlobName,
             blob.BlobUri,
-            contentHash,
+            metadata.ContentHash,
             vectorNamespace,
             command.SourceType,
             command.UploadedByUserId,
@@ -169,57 +164,69 @@ public class TenantKnowledgeDocumentService(
             DateTime.UtcNow);
 
         document.AssignTags(tags.Select(x => x.Id), DateTime.UtcNow);
+        IReadOnlyList<TenantKnowledgeVectorRecord> vectorRecords = [];
 
         var requiresApproval = configuration.ManualApprovalRequiredBeforeIndexing && !command.ApproveForIndexing;
         if (requiresApproval)
         {
             document.MarkAwaitingApproval(DateTime.UtcNow);
-        }
-        else
-        {
-            try
-            {
-                var extractedText = await textExtractor.ExtractTextAsync(command.FileName, command.Content, cancellationToken);
-                var chunks = SplitIntoChunks(extractedText, configuration.ChunkSize, configuration.ChunkOverlap);
-
-                if (chunks.Count == 0)
-                    throw new InvalidOperationException("No extractable text was found in the uploaded document.");
-
-                var embeddings = await embeddingGenerator.GenerateEmbeddingsAsync(
-                    chunks,
-                    configuration.Models.EmbeddingModel,
-                    cancellationToken);
-
-                if (embeddings.Count != chunks.Count)
-                    throw new InvalidOperationException("The embedding generator returned an unexpected number of vectors.");
-
-                var chunkEntities = chunks
-                    .Select((chunk, index) => new TenantKnowledgeDocumentChunk(
-                        index,
-                        BuildVectorRecordId(vectorNamespace, document.DocumentKey, index),
-                        vectorNamespace,
-                        configuration.Models.EmbeddingModel,
-                        embeddings[index].Length,
-                        chunk,
-                        JsonSerializer.Serialize(embeddings[index]),
-                        DateTime.UtcNow))
-                    .ToList();
-
-                document.MarkReady(chunkEntities, DateTime.UtcNow);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(
-                    ex,
-                    "Knowledge document upload for tenant {TenantId} completed blob storage but failed during extraction or embedding.",
-                    command.TenantId);
-
-                document.MarkFailed(ex.GetBaseException().Message, DateTime.UtcNow);
-            }
+            var awaitingApproval = await repository.AddDocumentAsync(document, cancellationToken);
+            return awaitingApproval.ToDto();
         }
 
         var saved = await repository.AddDocumentAsync(document, cancellationToken);
-        return saved.ToDto();
+        try
+        {
+            var processingResult = await documentProcessor.ProcessAsync(
+                saved,
+                configuration,
+                category,
+                tags,
+                command.Content,
+                cancellationToken);
+
+            vectorRecords = processingResult.VectorRecords;
+            saved.MarkReady(processingResult.Chunks, DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex,
+                "Knowledge document upload for tenant {TenantId} completed blob storage but failed during extraction, chunking, embedding, or vector indexing.",
+                command.TenantId);
+
+            saved.MarkFailed(ex.GetBaseException().Message, DateTime.UtcNow);
+        }
+
+        try
+        {
+            var updated = await repository.UpdateDocumentAsync(saved, cancellationToken);
+            return updated.ToDto();
+        }
+        catch
+        {
+            if (saved.ProcessingStatus == KnowledgeDocumentProcessingStatus.Ready && vectorRecords.Count > 0)
+            {
+                try
+                {
+                    await vectorStore.DeleteChunksAsync(
+                        vectorNamespace,
+                        sectionKey,
+                        vectorRecords.Select(x => x.Id).ToList(),
+                        cancellationToken);
+                }
+                catch (Exception cleanupException)
+                {
+                    logger.LogWarning(
+                        cleanupException,
+                        "Knowledge document persistence failed after vector indexing for tenant {TenantId}. Vector cleanup for document {DocumentKey} may be incomplete.",
+                        command.TenantId,
+                        saved.DocumentKey);
+                }
+            }
+
+            throw;
+        }
     }
 
     private async Task<TenantKnowledgeConfigurationDto> GetOrCreateConfigurationAsync(int tenantId, CancellationToken cancellationToken)
@@ -309,95 +316,4 @@ public class TenantKnowledgeDocumentService(
             .ToList();
     }
 
-    private static IReadOnlyDictionary<string, string> BuildBlobMetadata(
-        UploadTenantKnowledgeDocumentCommand command,
-        TenantKnowledgeCategory? category,
-        IReadOnlyList<TenantKnowledgeTag> tags)
-        => new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["tenantid"] = command.TenantId.ToString(),
-            ["source"] = command.SourceType.ToString(),
-            ["title"] = ResolveTitle(command.Title, command.FileName),
-            ["category"] = category?.Name ?? string.Empty,
-            ["tags"] = string.Join(',', tags.Select(x => x.Name))
-        };
-
-    private static string ResolveTitle(string? title, string fileName)
-    {
-        if (!string.IsNullOrWhiteSpace(title))
-            return title.Trim();
-
-        var inferred = Path.GetFileNameWithoutExtension(fileName)?.Trim();
-        if (!string.IsNullOrWhiteSpace(inferred))
-            return inferred;
-
-        return Path.GetFileName(fileName);
-    }
-
-    private static string ComputeSha256(byte[] content)
-    {
-        var hash = SHA256.HashData(content);
-        var builder = new StringBuilder(hash.Length * 2);
-        foreach (var value in hash)
-        {
-            builder.Append(value.ToString("x2"));
-        }
-
-        return builder.ToString();
-    }
-
-    private static string BuildVectorRecordId(string vectorNamespace, Guid documentKey, int chunkIndex)
-        => $"{vectorNamespace}:{documentKey:N}:{chunkIndex:D4}";
-
-    private static List<string> SplitIntoChunks(string text, int chunkSize, int chunkOverlap)
-    {
-        var normalized = (text ?? string.Empty)
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Trim();
-
-        if (normalized.Length == 0)
-            return [];
-
-        var chunks = new List<string>();
-        var start = 0;
-
-        while (start < normalized.Length)
-        {
-            var desiredEnd = Math.Min(normalized.Length, start + chunkSize);
-            var end = desiredEnd;
-
-            if (desiredEnd < normalized.Length)
-            {
-                var minBoundary = Math.Max(start + (chunkSize / 2), start + 1);
-                for (var cursor = desiredEnd; cursor > minBoundary; cursor--)
-                {
-                    if (!char.IsWhiteSpace(normalized[cursor - 1]))
-                        continue;
-
-                    end = cursor;
-                    break;
-                }
-            }
-
-            if (end <= start)
-                end = Math.Min(normalized.Length, start + chunkSize);
-
-            var chunk = normalized[start..end].Trim();
-            if (!string.IsNullOrWhiteSpace(chunk))
-                chunks.Add(chunk);
-
-            if (end >= normalized.Length)
-                break;
-
-            var nextStart = Math.Max(end - chunkOverlap, start + 1);
-            while (nextStart < normalized.Length && char.IsWhiteSpace(normalized[nextStart]))
-            {
-                nextStart++;
-            }
-
-            start = nextStart;
-        }
-
-        return chunks;
-    }
 }

@@ -21,6 +21,7 @@ public class TenantGenerationKnowledgeSourceProvider(
     ITenantKnowledgeDocumentDbContextFactory dbContextFactory,
     ITenantKnowledgeDocumentStoreProvisioner storeProvisioner,
     ITenantEmbeddingGenerator embeddingGenerator,
+    ITenantKnowledgeVectorStore vectorStore,
     ITenantKnowledgeBlobStorage blobStorage,
     ITenantKnowledgeTextExtractor textExtractor,
     IOptions<TenantGenerationOptions> options,
@@ -51,24 +52,49 @@ public class TenantGenerationKnowledgeSourceProvider(
             .Select(x => x.DocumentId!.Value)
             .Distinct()
             .ToList();
+        var documentKeys = await ResolveDocumentKeysAsync(context, tenantId, documentIds, cancellationToken);
+        var vectorStoreNamespace = await ResolveVectorStoreNamespaceAsync(tenantId, cancellationToken);
 
-        var documents = await LoadDocumentsAsync(
-            context,
+        IReadOnlyList<TenantKnowledgeDocument> documents;
+        IReadOnlyList<RetrievedGenerationSourceDto> chunkSources;
+
+        var vectorSearchResult = await TryBuildVectorChunkSourcesAsync(
             tenantId,
-            categoryIds,
-            tagIds,
-            documentIds,
-            cancellationToken);
-
-        if (documents.Count == 0)
-            return [];
-
-        var chunkSources = await BuildChunkSourcesAsync(
             input,
             configuration,
             selections,
-            documents,
+            categoryIds,
+            tagIds,
+            documentKeys,
+            vectorStoreNamespace,
+            context,
             cancellationToken);
+
+        if (vectorSearchResult is not null)
+        {
+            documents = vectorSearchResult.Documents;
+            chunkSources = vectorSearchResult.Sources;
+        }
+        else
+        {
+            documents = await LoadDocumentsAsync(
+                context,
+                tenantId,
+                categoryIds,
+                tagIds,
+                documentIds,
+                cancellationToken);
+
+            if (documents.Count == 0)
+                return [];
+
+            chunkSources = await BuildChunkSourcesAsync(
+                input,
+                configuration,
+                selections,
+                documents,
+                cancellationToken);
+        }
 
         var sources = chunkSources.ToList();
         if (ShouldIncludeBlobContent(selections))
@@ -87,6 +113,102 @@ public class TenantGenerationKnowledgeSourceProvider(
             .ThenBy(x => x.ChunkIndex)
             .Take(ResolveFinalLimit(configuration, selections) + ResolveBlobLimit(selections))
             .ToList();
+    }
+
+    private async Task<VectorChunkRetrievalResult?> TryBuildVectorChunkSourcesAsync(
+        int tenantId,
+        string input,
+        TenantKnowledgeConfigurationDto configuration,
+        IReadOnlyList<GenerationDataSourceSelectionDto> selections,
+        IReadOnlyList<int> categoryIds,
+        IReadOnlyList<int> tagIds,
+        IReadOnlyList<string> documentKeys,
+        string vectorStoreNamespace,
+        TenantKnowledgeDocumentDbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!vectorStore.UsesExternalVectorStore)
+            return null;
+
+        var queryEmbedding = await GenerateQueryEmbeddingAsync(input, configuration.Models.EmbeddingModel, cancellationToken);
+        if (queryEmbedding is null)
+            return null;
+
+        IReadOnlyList<TenantKnowledgeVectorSearchResult> vectorMatches;
+        try
+        {
+            vectorMatches = await vectorStore.SearchAsync(
+                vectorStoreNamespace,
+                new TenantKnowledgeVectorSearchQuery(
+                    queryEmbedding,
+                    ResolveFinalLimit(configuration, selections),
+                    categoryIds.Select(categoryId => TenantVectorStoreCosmosContext.BuildSectionKey(categoryId)).ToList(),
+                    documentKeys,
+                    categoryIds,
+                    tagIds),
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or Microsoft.Azure.Cosmos.CosmosException)
+        {
+            logger.LogWarning(
+                ex,
+                "Generation retrieval could not query the Azure vector store for tenant {TenantId}. Falling back to SQL chunk scoring.",
+                tenantId);
+            return null;
+        }
+
+        var acceptedMatches = vectorMatches
+            .Where(x => x.Score >= configuration.MinimumSimilarityThreshold)
+            .OrderByDescending(x => x.Score)
+            .ThenBy(x => x.DocumentKey)
+            .ThenBy(x => x.ChunkIndex)
+            .ToList();
+
+        if (acceptedMatches.Count == 0)
+            return null;
+
+        var documents = await LoadDocumentsByKeysAsync(
+            context,
+            tenantId,
+            acceptedMatches.Select(x => x.DocumentKey).Distinct().ToList(),
+            cancellationToken);
+
+        if (documents.Count == 0)
+            return null;
+
+        var chunkLookup = documents
+            .SelectMany(document => document.Chunks.Select(chunk => (Document: document, Chunk: chunk)))
+            .ToDictionary(
+                item => (item.Document.DocumentKey, item.Chunk.ChunkIndex),
+                item => item);
+
+        var sources = acceptedMatches
+            .Select(match =>
+            {
+                if (!chunkLookup.TryGetValue((match.DocumentKey, match.ChunkIndex), out var item))
+                    return null;
+
+                return new RetrievedGenerationSourceDto(
+                    "KnowledgeChunk",
+                    item.Document.Id,
+                    item.Document.Title,
+                    item.Document.CategoryId,
+                    item.Document.Category?.Name,
+                    item.Chunk.Id,
+                    item.Chunk.ChunkIndex,
+                    match.Score,
+                    item.Document.BlobContainerName,
+                    item.Document.BlobName,
+                    item.Document.BlobUri,
+                    LimitContent(item.Chunk.Content, _options.SourceExcerptMaxCharacters));
+            })
+            .Where(x => x is not null)
+            .Select(x => x!)
+            .ToList();
+
+        return sources.Count == 0
+            ? null
+            : new VectorChunkRetrievalResult(sources, documents);
     }
 
     private async Task<IReadOnlyList<RetrievedGenerationSourceDto>> BuildChunkSourcesAsync(
@@ -216,6 +338,26 @@ public class TenantGenerationKnowledgeSourceProvider(
         return await query
             .OrderByDescending(x => x.IndexedAtUtc ?? x.UpdatedAtUtc)
             .Take(100)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static async Task<IReadOnlyList<TenantKnowledgeDocument>> LoadDocumentsByKeysAsync(
+        TenantKnowledgeDocumentDbContext context,
+        int tenantId,
+        IReadOnlyCollection<Guid> documentKeys,
+        CancellationToken cancellationToken)
+    {
+        if (documentKeys.Count == 0)
+            return [];
+
+        return await context.Documents
+            .AsNoTracking()
+            .Include(x => x.Category)
+            .Include(x => x.Chunks)
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.ProcessingStatus == KnowledgeDocumentProcessingStatus.Ready &&
+                documentKeys.Contains(x.DocumentKey))
             .ToListAsync(cancellationToken);
     }
 
@@ -351,6 +493,29 @@ public class TenantGenerationKnowledgeSourceProvider(
         return ids.ToList();
     }
 
+    private async Task<IReadOnlyList<string>> ResolveDocumentKeysAsync(
+        TenantKnowledgeDocumentDbContext context,
+        int tenantId,
+        IReadOnlyList<int> documentIds,
+        CancellationToken cancellationToken)
+    {
+        if (documentIds.Count == 0)
+            return [];
+
+        var keys = await context.Documents
+            .AsNoTracking()
+            .Where(x =>
+                x.TenantId == tenantId &&
+                x.ProcessingStatus == KnowledgeDocumentProcessingStatus.Ready &&
+                documentIds.Contains(x.Id))
+            .Select(x => x.DocumentKey)
+            .ToListAsync(cancellationToken);
+
+        return keys
+            .Select(x => x.ToString("N"))
+            .ToList();
+    }
+
     private async Task<string> ResolveSchemaNameAsync(int tenantId, CancellationToken cancellationToken)
     {
         var schemaName = await provisioningDbContext.TenantInfrastructureProvisionings
@@ -363,6 +528,20 @@ public class TenantGenerationKnowledgeSourceProvider(
             return schemaName;
 
         return tenantResourceNamingStrategy.Create(tenantId).DatabaseSchema;
+    }
+
+    private async Task<string> ResolveVectorStoreNamespaceAsync(int tenantId, CancellationToken cancellationToken)
+    {
+        var namespaceName = await provisioningDbContext.TenantInfrastructureProvisionings
+            .AsNoTracking()
+            .Where(x => x.TenantId == tenantId)
+            .Select(x => x.VectorStoreNamespace)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(namespaceName))
+            return namespaceName;
+
+        return tenantResourceNamingStrategy.Create(tenantId).VectorStoreNamespace;
     }
 
     private static IReadOnlyList<GenerationDataSourceSelectionDto> NormalizeSelections(
@@ -408,4 +587,8 @@ public class TenantGenerationKnowledgeSourceProvider(
         => string.Join(' ', (value ?? string.Empty)
             .Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             .ToUpperInvariant();
+
+    private sealed record VectorChunkRetrievalResult(
+        IReadOnlyList<RetrievedGenerationSourceDto> Sources,
+        IReadOnlyList<TenantKnowledgeDocument> Documents);
 }
