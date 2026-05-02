@@ -21,6 +21,7 @@ public class ProvisioningDbContext(DbContextOptions<ProvisioningDbContext> optio
             builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
             builder.Property(x => x.DatabaseSchema).HasMaxLength(128);
             builder.Property(x => x.VectorStoreNamespace).HasMaxLength(256);
+            builder.Property(x => x.BlobContainerName).HasMaxLength(63);
             builder.Property(x => x.FailedStep).HasMaxLength(64);
             builder.Property(x => x.LastError).HasMaxLength(4000);
 

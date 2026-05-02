@@ -7,11 +7,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="Handlers\" />
-      <Folder Include="Services\" />
-    </ItemGroup>
-
-    <ItemGroup>
       <ProjectReference Include="..\..\Identity\Callio.Identity.Domain\Callio.Identity.Domain.csproj" />
       <ProjectReference Include="..\Callio.Admin.Domain\Callio.Admin.Domain.csproj" />
     </ItemGroup>

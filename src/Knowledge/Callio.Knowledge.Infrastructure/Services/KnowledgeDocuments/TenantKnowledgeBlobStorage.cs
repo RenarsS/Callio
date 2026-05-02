@@ -1,14 +1,17 @@
 using Callio.Knowledge.Infrastructure.Options;
+using Callio.Provisioning.Infrastructure.Options;
 using Microsoft.Extensions.Options;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
 public class TenantKnowledgeBlobStorage(
-    IOptions<TenantKnowledgeIngestionOptions> options,
+    IOptions<TenantProvisioningOptions> provisioningOptions,
+    IOptions<TenantKnowledgeIngestionOptions> ingestionOptions,
     FileSystemTenantKnowledgeBlobStorage fileSystemStorage,
     AzureBlobTenantKnowledgeBlobStorage azureBlobStorage) : ITenantKnowledgeBlobStorage
 {
-    private readonly TenantKnowledgeIngestionOptions _options = options.Value;
+    private readonly TenantProvisioningOptions _provisioningOptions = provisioningOptions.Value;
+    private readonly TenantKnowledgeIngestionOptions _ingestionOptions = ingestionOptions.Value;
 
     public Task<TenantKnowledgeBlobObject> UploadAsync(
         int tenantId,
@@ -30,5 +33,12 @@ public class TenantKnowledgeBlobStorage(
             : fileSystemStorage.DownloadAsync(containerName, blobName, cancellationToken);
 
     private bool IsAzureBlob()
-        => string.Equals(_options.BlobProvider, "AzureBlob", StringComparison.OrdinalIgnoreCase);
+    {
+        var provider = string.IsNullOrWhiteSpace(_provisioningOptions.BlobStorageProvider)
+            && string.Equals(_provisioningOptions.ResourceProvider, TenantProvisioningOptions.LocalProvider, StringComparison.OrdinalIgnoreCase)
+                ? _ingestionOptions.BlobProvider
+                : _provisioningOptions.ResolveBlobStorageProvider();
+
+        return string.Equals(provider, TenantProvisioningOptions.AzureBlobProvider, StringComparison.OrdinalIgnoreCase);
+    }
 }

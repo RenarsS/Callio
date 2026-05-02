@@ -552,6 +552,7 @@ internal sealed class TestTenantRequestSeeder(
             requestId,
             names.DatabaseSchema,
             names.VectorStoreNamespace,
+            names.BlobContainerName,
             requestedAtUtc.AddHours(5));
 
         provisioning.BeginAttempt(startedAt);
@@ -563,6 +564,10 @@ internal sealed class TestTenantRequestSeeder(
         var vectorStep = provisioning.GetRequiredStep(TenantProvisioningSteps.VectorStore);
         vectorStep.MarkInProgress(startedAt.AddMinutes(6));
         vectorStep.MarkSucceeded(startedAt.AddMinutes(15));
+
+        var blobStep = provisioning.GetRequiredStep(TenantProvisioningSteps.BlobStorage);
+        blobStep.MarkInProgress(startedAt.AddMinutes(16));
+        blobStep.MarkSucceeded(startedAt.AddMinutes(19));
 
         provisioning.MarkSucceeded(completedAt);
 
@@ -594,6 +599,7 @@ internal sealed class TestTenantRequestSeeder(
             requestId,
             names.DatabaseSchema,
             names.VectorStoreNamespace,
+            names.BlobContainerName,
             requestedAtUtc.AddHours(4));
 
         provisioning.BeginAttempt(startedAt);

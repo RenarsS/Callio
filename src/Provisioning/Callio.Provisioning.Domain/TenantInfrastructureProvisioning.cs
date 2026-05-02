@@ -20,6 +20,8 @@ public class TenantInfrastructureProvisioning : Entity<int>
 
     public string VectorStoreNamespace { get; private set; } = string.Empty;
 
+    public string BlobContainerName { get; private set; } = string.Empty;
+
     public string? FailedStep { get; private set; }
 
     public string? LastError { get; private set; }
@@ -44,6 +46,7 @@ public class TenantInfrastructureProvisioning : Entity<int>
         int tenantRequestId,
         string databaseSchema,
         string vectorStoreNamespace,
+        string blobContainerName,
         DateTime now)
     {
         if (string.IsNullOrWhiteSpace(requestedByUserId))
@@ -55,11 +58,15 @@ public class TenantInfrastructureProvisioning : Entity<int>
         if (string.IsNullOrWhiteSpace(vectorStoreNamespace))
             throw new InvalidFieldException(nameof(VectorStoreNamespace));
 
+        if (string.IsNullOrWhiteSpace(blobContainerName))
+            throw new InvalidFieldException(nameof(BlobContainerName));
+
         RequestedByUserId = requestedByUserId.Trim();
         TenantId = tenantId;
         TenantRequestId = tenantRequestId;
         DatabaseSchema = databaseSchema.Trim();
         VectorStoreNamespace = vectorStoreNamespace.Trim();
+        BlobContainerName = blobContainerName.Trim();
         Status = ProvisioningStatus.Pending;
         CreatedAtUtc = now;
         UpdatedAtUtc = now;
@@ -76,8 +83,9 @@ public class TenantInfrastructureProvisioning : Entity<int>
         int tenantRequestId,
         string databaseSchema,
         string vectorStoreNamespace,
+        string blobContainerName,
         DateTime now)
-        => new(requestedByUserId, tenantId, tenantRequestId, databaseSchema, vectorStoreNamespace, now);
+        => new(requestedByUserId, tenantId, tenantRequestId, databaseSchema, vectorStoreNamespace, blobContainerName, now);
 
     public void RefreshSource(string requestedByUserId, int tenantRequestId, DateTime now)
     {
@@ -86,6 +94,41 @@ public class TenantInfrastructureProvisioning : Entity<int>
 
         TenantRequestId = tenantRequestId;
         UpdatedAtUtc = now;
+    }
+
+    public void EnsureResources(string databaseSchema, string vectorStoreNamespace, string blobContainerName, DateTime now)
+    {
+        if (string.IsNullOrWhiteSpace(databaseSchema))
+            throw new InvalidFieldException(nameof(DatabaseSchema));
+
+        if (string.IsNullOrWhiteSpace(vectorStoreNamespace))
+            throw new InvalidFieldException(nameof(VectorStoreNamespace));
+
+        if (string.IsNullOrWhiteSpace(blobContainerName))
+            throw new InvalidFieldException(nameof(BlobContainerName));
+
+        if (string.IsNullOrWhiteSpace(DatabaseSchema))
+            DatabaseSchema = databaseSchema.Trim();
+
+        if (string.IsNullOrWhiteSpace(VectorStoreNamespace))
+            VectorStoreNamespace = vectorStoreNamespace.Trim();
+
+        if (string.IsNullOrWhiteSpace(BlobContainerName))
+            BlobContainerName = blobContainerName.Trim();
+
+        EnsureSteps(now);
+        UpdatedAtUtc = now;
+    }
+
+    public void EnsureSteps(DateTime now)
+    {
+        var existing = Steps.Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < TenantProvisioningSteps.Ordered.Count; i++)
+        {
+            var stepName = TenantProvisioningSteps.Ordered[i];
+            if (!existing.Contains(stepName))
+                Steps.Add(new TenantInfrastructureProvisioningStep(stepName, i + 1, now));
+        }
     }
 
     public void BeginAttempt(DateTime now)

@@ -17,12 +17,14 @@ public class TenantInfrastructureProvisioningTests
             1001,
             "tenant_42",
             "tenant-42",
+            "tenant-knowledge-42",
             now);
 
         provisioning.Status.Should().Be(ProvisioningStatus.Pending);
         provisioning.DatabaseSchema.Should().Be("tenant_42");
         provisioning.VectorStoreNamespace.Should().Be("tenant-42");
-        provisioning.Steps.Should().HaveCount(2);
+        provisioning.BlobContainerName.Should().Be("tenant-knowledge-42");
+        provisioning.Steps.Should().HaveCount(3);
         provisioning.Steps.Select(x => x.Name).Should().ContainInOrder(TenantProvisioningSteps.Ordered);
         provisioning.Steps.Should().OnlyContain(x => x.Status == ProvisioningStepStatus.Pending);
     }
@@ -36,6 +38,7 @@ public class TenantInfrastructureProvisioningTests
             1001,
             "tenant_42",
             "tenant-42",
+            "tenant-knowledge-42",
             DateTime.UtcNow);
 
         var startedAt = new DateTime(2026, 4, 6, 11, 0, 0, DateTimeKind.Utc);
@@ -57,6 +60,7 @@ public class TenantInfrastructureProvisioningTests
             1001,
             "tenant_42",
             "tenant-42",
+            "tenant-knowledge-42",
             DateTime.UtcNow);
 
         provisioning.BeginAttempt(DateTime.UtcNow);
@@ -79,6 +83,7 @@ public class TenantInfrastructureProvisioningTests
             1001,
             "tenant_42",
             "tenant-42",
+            "tenant-knowledge-42",
             DateTime.UtcNow);
 
         provisioning.BeginAttempt(DateTime.UtcNow);

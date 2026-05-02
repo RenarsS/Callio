@@ -22,6 +22,9 @@ public static class ProvisioningModuleExtensions
         services.AddScoped<DevelopmentTenantVectorStoreProvisioner>();
         services.AddScoped<AzureCosmosTenantVectorStoreProvisioner>();
         services.AddScoped<ITenantVectorStoreProvisioner, TenantVectorStoreProvisioner>();
+        services.AddScoped<LocalTenantBlobStorageProvisioner>();
+        services.AddScoped<AzureBlobTenantBlobStorageProvisioner>();
+        services.AddScoped<ITenantBlobStorageProvisioner, TenantBlobStorageProvisioner>();
         services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();
 
         services.AddDbContext<ProvisioningDbContext>(options =>

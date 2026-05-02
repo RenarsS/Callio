@@ -17,6 +17,7 @@ public class TenantProvisioningService(
     ProvisioningDbContext provisioningDbContext,
     ITenantDatabaseSchemaProvisioner tenantDatabaseSchemaProvisioner,
     ITenantVectorStoreProvisioner tenantVectorStoreProvisioner,
+    ITenantBlobStorageProvisioner tenantBlobStorageProvisioner,
     ITenantKnowledgeConfigurationSetupService tenantKnowledgeConfigurationSetupService,
     ITenantKnowledgeConfigurationService tenantKnowledgeConfigurationService,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
@@ -40,12 +41,15 @@ public class TenantProvisioningService(
                 command.TenantRequestId,
                 names.DatabaseSchema,
                 names.VectorStoreNamespace,
+                names.BlobContainerName,
                 DateTime.UtcNow);
 
             provisioningDbContext.TenantInfrastructureProvisionings.Add(provisioning);
         }
         else
         {
+            var names = tenantResourceNamingStrategy.Create(command.TenantId);
+            provisioning.EnsureResources(names.DatabaseSchema, names.VectorStoreNamespace, names.BlobContainerName, DateTime.UtcNow);
             provisioning.RefreshSource(command.UserId, command.TenantRequestId, DateTime.UtcNow);
         }
 
@@ -113,6 +117,8 @@ public class TenantProvisioningService(
         if (provisioning is null)
             return null;
 
+        EnsureProvisioningResources(provisioning);
+
         if (provisioning.Status == ProvisioningStatus.InProgress)
             return (await GetStatusAsync(provisioning.TenantId, cancellationToken))!;
 
@@ -130,6 +136,10 @@ public class TenantProvisioningService(
             provisioning = await CreateProvisioningForTenantAsync(tenantId, cancellationToken);
             if (provisioning is null)
                 return null;
+        }
+        else
+        {
+            EnsureProvisioningResources(provisioning);
         }
 
         if (provisioning.Status == ProvisioningStatus.InProgress)
@@ -157,17 +167,19 @@ public class TenantProvisioningService(
         await provisioningDbContext.SaveChangesAsync(cancellationToken);
 
         var stepsToExecute = stepNamesToExecute.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var step in provisioning.Steps.OrderBy(x => x.Order))
+        var resources = CreateProvisioningResources(provisioning);
+        foreach (var resource in resources)
         {
-            if (!stepsToExecute.Contains(step.Name))
+            if (!stepsToExecute.Contains(resource.StepName))
                 continue;
 
+            var step = provisioning.GetRequiredStep(resource.StepName);
             step.MarkInProgress(DateTime.UtcNow);
             await provisioningDbContext.SaveChangesAsync(cancellationToken);
 
             try
             {
-                await ExecuteStepAsync(provisioning, step.Name, cancellationToken);
+                await resource.EnsureCreated(cancellationToken);
                 step.MarkSucceeded(DateTime.UtcNow);
                 await provisioningDbContext.SaveChangesAsync(cancellationToken);
             }
@@ -206,6 +218,7 @@ public class TenantProvisioningService(
             source.TenantRequestId,
             names.DatabaseSchema,
             names.VectorStoreNamespace,
+            names.BlobContainerName,
             DateTime.UtcNow);
 
         provisioningDbContext.TenantInfrastructureProvisionings.Add(provisioning);
@@ -234,22 +247,24 @@ public class TenantProvisioningService(
         return tenantExists ? new ProvisioningSource("dashboard-admin", 0) : null;
     }
 
-    private async Task ExecuteStepAsync(
-        TenantInfrastructureProvisioning provisioning,
-        string stepName,
-        CancellationToken cancellationToken)
+    private IReadOnlyList<TenantProvisioningResource> CreateProvisioningResources(TenantInfrastructureProvisioning provisioning)
+        =>
+        [
+            new(
+                TenantProvisioningSteps.DatabaseSchema,
+                ct => tenantDatabaseSchemaProvisioner.EnsureCreatedAsync(provisioning.DatabaseSchema, ct)),
+            new(
+                TenantProvisioningSteps.VectorStore,
+                ct => tenantVectorStoreProvisioner.EnsureCreatedAsync(provisioning.TenantId, provisioning.VectorStoreNamespace, ct)),
+            new(
+                TenantProvisioningSteps.BlobStorage,
+                ct => tenantBlobStorageProvisioner.EnsureCreatedAsync(provisioning.BlobContainerName, ct))
+        ];
+
+    private void EnsureProvisioningResources(TenantInfrastructureProvisioning provisioning)
     {
-        switch (stepName)
-        {
-            case TenantProvisioningSteps.DatabaseSchema:
-                await tenantDatabaseSchemaProvisioner.EnsureCreatedAsync(provisioning.DatabaseSchema, cancellationToken);
-                break;
-            case TenantProvisioningSteps.VectorStore:
-                await tenantVectorStoreProvisioner.EnsureCreatedAsync(provisioning.TenantId, provisioning.VectorStoreNamespace, cancellationToken);
-                break;
-            default:
-                throw new InvalidOperationException($"Provisioning step '{stepName}' is not supported.");
-        }
+        var names = tenantResourceNamingStrategy.Create(provisioning.TenantId);
+        provisioning.EnsureResources(names.DatabaseSchema, names.VectorStoreNamespace, names.BlobContainerName, DateTime.UtcNow);
     }
 
     private async Task<IReadOnlyDictionary<int, TenantKnowledgeConfigurationSetupStatusDto>> GetKnowledgeConfigurationSetupLookupAsync(
@@ -321,6 +336,7 @@ public class TenantProvisioningService(
                     provisioning.RequestedByUserId,
                     provisioning.DatabaseSchema,
                     provisioning.VectorStoreNamespace,
+                    provisioning.BlobContainerName,
                     provisioning.AttemptCount,
                     MapStepStatuses(provisioning),
                     DateTime.UtcNow),
@@ -346,6 +362,7 @@ public class TenantProvisioningService(
                     provisioning.RequestedByUserId,
                     provisioning.DatabaseSchema,
                     provisioning.VectorStoreNamespace,
+                    provisioning.BlobContainerName,
                     provisioning.AttemptCount,
                     provisioning.FailedStep,
                     provisioning.LastError,
@@ -384,6 +401,7 @@ public class TenantProvisioningService(
             provisioning.AttemptCount,
             provisioning.DatabaseSchema,
             provisioning.VectorStoreNamespace,
+            provisioning.BlobContainerName,
             provisioning.FailedStep,
             provisioning.LastError,
             provisioning.CreatedAtUtc,
@@ -405,6 +423,10 @@ public class TenantProvisioningService(
                 .ToList());
     
     private sealed record ProvisioningSource(string RequestedByUserId, int TenantRequestId);
+
+    private sealed record TenantProvisioningResource(
+        string StepName,
+        Func<CancellationToken, Task> EnsureCreated);
 
     private enum TenantProvisioningExecutionMode
     {

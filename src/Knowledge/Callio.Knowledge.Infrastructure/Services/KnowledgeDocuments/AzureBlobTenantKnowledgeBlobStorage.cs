@@ -1,13 +1,19 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Callio.Knowledge.Infrastructure.Options;
+using Callio.Provisioning.Infrastructure.Options;
+using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.Extensions.Options;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
-public class AzureBlobTenantKnowledgeBlobStorage(IOptions<TenantKnowledgeIngestionOptions> options) : ITenantKnowledgeBlobStorage
+public class AzureBlobTenantKnowledgeBlobStorage(
+    IOptions<TenantProvisioningOptions> provisioningOptions,
+    IOptions<TenantKnowledgeIngestionOptions> ingestionOptions,
+    ITenantResourceNamingStrategy tenantResourceNamingStrategy) : ITenantKnowledgeBlobStorage
 {
-    private readonly TenantKnowledgeIngestionOptions _options = options.Value;
+    private readonly TenantProvisioningOptions _provisioningOptions = provisioningOptions.Value;
+    private readonly TenantKnowledgeIngestionOptions _ingestionOptions = ingestionOptions.Value;
 
     public async Task<TenantKnowledgeBlobObject> UploadAsync(
         int tenantId,
@@ -17,14 +23,15 @@ public class AzureBlobTenantKnowledgeBlobStorage(IOptions<TenantKnowledgeIngesti
         IReadOnlyDictionary<string, string> metadata,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.AzureBlobConnectionString))
+        var connectionString = ResolveConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("Azure blob storage requires a connection string.");
 
-        if (string.IsNullOrWhiteSpace(_options.AzureBlobContainerName))
-            throw new InvalidOperationException("Azure blob storage requires a container name.");
+        var blobName = $"{DateTime.UtcNow:yyyy/MM/dd}/{Guid.NewGuid():N}/{Path.GetFileName(fileName)}";
+        var containerClient = new BlobContainerClient(
+            connectionString,
+            tenantResourceNamingStrategy.Create(tenantId).BlobContainerName);
 
-        var blobName = $"{tenantId}/{DateTime.UtcNow:yyyy/MM/dd}/{Guid.NewGuid():N}/{Path.GetFileName(fileName)}";
-        var containerClient = new BlobContainerClient(_options.AzureBlobConnectionString, _options.AzureBlobContainerName);
         await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         var blobClient = containerClient.GetBlobClient(blobName);
@@ -49,11 +56,12 @@ public class AzureBlobTenantKnowledgeBlobStorage(IOptions<TenantKnowledgeIngesti
         string blobName,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.AzureBlobConnectionString))
+        var connectionString = ResolveConnectionString();
+        if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("Azure blob storage requires a connection string.");
 
         var resolvedContainerName = string.IsNullOrWhiteSpace(containerName)
-            ? _options.AzureBlobContainerName
+            ? _ingestionOptions.AzureBlobContainerName
             : containerName.Trim();
 
         if (string.IsNullOrWhiteSpace(resolvedContainerName))
@@ -62,7 +70,7 @@ public class AzureBlobTenantKnowledgeBlobStorage(IOptions<TenantKnowledgeIngesti
         if (string.IsNullOrWhiteSpace(blobName))
             throw new ArgumentException("Blob name is required.", nameof(blobName));
 
-        var containerClient = new BlobContainerClient(_options.AzureBlobConnectionString, resolvedContainerName);
+        var containerClient = new BlobContainerClient(connectionString, resolvedContainerName);
         var blobClient = containerClient.GetBlobClient(blobName);
         var download = await blobClient.DownloadContentAsync(cancellationToken);
 
@@ -72,4 +80,9 @@ public class AzureBlobTenantKnowledgeBlobStorage(IOptions<TenantKnowledgeIngesti
             download.Value.Details.ContentType ?? "application/octet-stream",
             download.Value.Content.ToArray());
     }
+
+    private string ResolveConnectionString()
+        => string.IsNullOrWhiteSpace(_provisioningOptions.AzureBlobConnectionString)
+            ? _ingestionOptions.AzureBlobConnectionString
+            : _provisioningOptions.AzureBlobConnectionString;
 }

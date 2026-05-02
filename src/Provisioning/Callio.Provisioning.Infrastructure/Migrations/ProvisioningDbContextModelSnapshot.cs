@@ -34,6 +34,11 @@ namespace Callio.Provisioning.Infrastructure.Migrations
                     b.Property<int>("AttemptCount")
                         .HasColumnType("int");
 
+                    b.Property<string>("BlobContainerName")
+                        .IsRequired()
+                        .HasMaxLength(63)
+                        .HasColumnType("nvarchar(63)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 

@@ -47,6 +47,7 @@ public record PortalTenantProvisioningStatusResponse(
     int AttemptCount,
     string DatabaseSchema,
     string VectorStoreNamespace,
+    string BlobContainerName,
     string? FailedStep,
     string? LastError,
     DateTime CreatedAtUtc,

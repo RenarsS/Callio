@@ -12,6 +12,7 @@ public record TenantInfrastructureProvisioningSucceededIntegrationEvent(
     string RequestedByUserId,
     string DatabaseSchema,
     string VectorStoreNamespace,
+    string BlobContainerName,
     int AttemptCount,
     IReadOnlyList<TenantProvisioningStepIntegrationStatus> Steps,
     DateTime OccurredAtUtc);
@@ -22,6 +23,7 @@ public record TenantInfrastructureProvisioningFailedIntegrationEvent(
     string RequestedByUserId,
     string DatabaseSchema,
     string VectorStoreNamespace,
+    string BlobContainerName,
     int AttemptCount,
     string? FailedStep,
     string? ErrorMessage,

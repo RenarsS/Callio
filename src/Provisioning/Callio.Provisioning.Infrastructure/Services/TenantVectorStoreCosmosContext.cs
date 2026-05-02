@@ -6,7 +6,6 @@ namespace Callio.Provisioning.Infrastructure.Services;
 
 public sealed class TenantVectorStoreCosmosContext(IOptions<TenantProvisioningOptions> options) : IAsyncDisposable
 {
-    public const string AzureCosmosProvider = "AzureCosmos";
     public const string SectionKeyPath = "/sectionKey";
     public const string VectorPath = "/contentVector";
 
@@ -14,7 +13,7 @@ public sealed class TenantVectorStoreCosmosContext(IOptions<TenantProvisioningOp
     private readonly CosmosClient? _client = CreateClient(options.Value);
 
     public bool UsesAzureCosmos
-        => string.Equals(_options.VectorStoreProvider, AzureCosmosProvider, StringComparison.OrdinalIgnoreCase);
+        => string.Equals(_options.ResolveVectorStoreProvider(), TenantProvisioningOptions.AzureCosmosProvider, StringComparison.OrdinalIgnoreCase);
 
     public int VectorDimensions
         => Math.Max(1, _options.AzureCosmosVectorDimensions);
