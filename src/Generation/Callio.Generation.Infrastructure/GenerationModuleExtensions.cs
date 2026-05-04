@@ -22,7 +22,7 @@ public static class GenerationModuleExtensions
         services.AddScoped<IGenerationPromptCatalog, GenerationPromptCatalog>();
         services.AddScoped<IGenerationKnowledgeSourceProvider, TenantGenerationKnowledgeSourceProvider>();
         services.AddScoped<DeterministicGenerationCompletionClient>();
-        services.AddScoped<AzureOpenAiGenerationCompletionClient>();
+        services.AddScoped<OpenAiGenerationCompletionClient>();
         services.AddScoped<IGenerationCompletionClient, TenantGenerationCompletionClient>();
         services.AddScoped<ITenantGenerationService, TenantGenerationService>();
 

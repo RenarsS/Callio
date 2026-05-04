@@ -4,6 +4,14 @@
     build:
       context: .
       dockerfile: src/Callio.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      TenantProvisioning__VectorStoreProvider: AzureCosmos
+      TenantProvisioning__BlobStorageProvider: AzureBlob
+      TenantKnowledgeIngestion__BlobProvider: AzureBlob
+      TenantKnowledgeIngestion__EmbeddingProvider: OpenAI
+      TenantGeneration__CompletionProvider: OpenAI
 
   callio.admin:
     image: callio.admin

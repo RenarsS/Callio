@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
@@ -16,6 +18,9 @@ public class TenantKnowledgeTextExtractor : ITenantKnowledgeTextExtractor
 
         if (string.Equals(extension, ".docx", StringComparison.OrdinalIgnoreCase))
             return Task.FromResult(ExtractDocxText(content));
+
+        if (string.Equals(extension, ".pdf", StringComparison.OrdinalIgnoreCase))
+            return Task.FromResult(ExtractPdfText(content));
 
         throw new NotSupportedException($"Files with extension '{extension}' are not currently supported for text extraction.");
     }
@@ -46,5 +51,16 @@ public class TenantKnowledgeTextExtractor : ITenantKnowledgeTextExtractor
             .Where(x => !string.IsNullOrWhiteSpace(x));
 
         return string.Join(Environment.NewLine, paragraphs);
+    }
+
+    private static string ExtractPdfText(byte[] content)
+    {
+        using var document = PdfDocument.Open(content);
+        var pages = document
+            .GetPages()
+            .Select(page => ContentOrderTextExtractor.GetText(page))
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+        return string.Join(Environment.NewLine, pages);
     }
 }

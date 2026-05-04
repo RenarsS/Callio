@@ -57,12 +57,15 @@ BEGIN
 END
 """;
 
-        await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
-        await connection.OpenAsync(cancellationToken);
+        await SqlServerTransientRetry.ExecuteAsync(async token =>
+        {
+            await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
+            await connection.OpenAsync(token);
 
-        await using var command = new SqlCommand(commandText, connection);
-        command.Parameters.AddWithValue("@activeIndexName", activeIndexName);
+            await using var command = new SqlCommand(commandText, connection);
+            command.Parameters.AddWithValue("@activeIndexName", activeIndexName);
 
-        await command.ExecuteNonQueryAsync(cancellationToken);
+            await command.ExecuteNonQueryAsync(token);
+        }, cancellationToken);
     }
 }

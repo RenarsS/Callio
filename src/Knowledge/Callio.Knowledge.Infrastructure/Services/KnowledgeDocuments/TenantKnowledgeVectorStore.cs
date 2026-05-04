@@ -1,12 +1,14 @@
 using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Logging;
 using System.Text;
 using System.Text.Json.Serialization;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
 public class TenantKnowledgeVectorStore(
-    TenantVectorStoreCosmosContext cosmosContext) : ITenantKnowledgeVectorStore
+    TenantVectorStoreCosmosContext cosmosContext,
+    ILogger<TenantKnowledgeVectorStore> logger) : ITenantKnowledgeVectorStore
 {
     public bool UsesExternalVectorStore => cosmosContext.UsesAzureCosmos;
 
@@ -15,10 +17,18 @@ public class TenantKnowledgeVectorStore(
         IReadOnlyList<TenantKnowledgeVectorRecord> records,
         CancellationToken cancellationToken = default)
     {
-        if (!UsesExternalVectorStore || records.Count == 0)
+        if (records.Count == 0)
             return;
 
-        var container = cosmosContext.GetRequiredContainer(vectorStoreNamespace);
+        if (!UsesExternalVectorStore)
+        {
+            logger.LogWarning(
+                "Skipping tenant knowledge vector indexing for namespace {VectorStoreNamespace} because Azure Cosmos vector storage is not enabled. Set TenantProvisioning:VectorStoreProvider to AzureCosmos.",
+                vectorStoreNamespace);
+            return;
+        }
+
+        var container = await cosmosContext.CreateVectorContainerIfNotExistsAsync(vectorStoreNamespace, cancellationToken);
 
         foreach (var sectionGroup in records.GroupBy(x => NormalizeRequired(x.SectionKey, nameof(TenantKnowledgeVectorRecord.SectionKey))))
         {
@@ -31,6 +41,11 @@ public class TenantKnowledgeVectorStore(
             var response = await batch.ExecuteAsync(cancellationToken);
             EnsureSuccessfulResponse(response, "upsert");
         }
+
+        logger.LogInformation(
+            "Indexed {VectorRecordCount} tenant knowledge vector records into Cosmos container {VectorStoreNamespace}.",
+            records.Count,
+            vectorStoreNamespace);
     }
 
     public async Task DeleteChunksAsync(

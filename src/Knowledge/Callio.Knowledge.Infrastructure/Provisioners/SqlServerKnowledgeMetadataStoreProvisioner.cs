@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Callio.Provisioning.Infrastructure.Services;
 
 namespace Callio.Knowledge.Infrastructure.Provisioners;
 
@@ -46,10 +47,13 @@ BEGIN
 END
 """;
 
-        await using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync(cancellationToken);
+        await SqlServerTransientRetry.ExecuteAsync(async token =>
+        {
+            await using var connection = new SqlConnection(_connectionString);
+            await connection.OpenAsync(token);
 
-        await using var command = new SqlCommand(commandText, connection);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+            await using var command = new SqlCommand(commandText, connection);
+            await command.ExecuteNonQueryAsync(token);
+        }, cancellationToken);
     }
 }

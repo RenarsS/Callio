@@ -1,11 +1,12 @@
 using Callio.Knowledge.Infrastructure.Options;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
 namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 
-public class AzureOpenAiTenantEmbeddingGenerator(
+public class OpenAiTenantEmbeddingGenerator(
     IOptions<TenantKnowledgeIngestionOptions> options) : ITenantEmbeddingGenerator
 {
     private static readonly HttpClient HttpClient = new();
@@ -16,28 +17,25 @@ public class AzureOpenAiTenantEmbeddingGenerator(
         string embeddingModel,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.AzureOpenAIEndpoint))
-            throw new InvalidOperationException("Azure OpenAI endpoint is required.");
+        var apiKey = ResolveApiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OpenAI API key is required.");
 
-        if (string.IsNullOrWhiteSpace(_options.AzureOpenAIKey))
-            throw new InvalidOperationException("Azure OpenAI key is required.");
-
-        var deployment = string.IsNullOrWhiteSpace(_options.AzureOpenAIEmbeddingDeployment)
-            ? embeddingModel
-            : _options.AzureOpenAIEmbeddingDeployment.Trim();
-
-        var endpoint = _options.AzureOpenAIEndpoint.TrimEnd('/');
-        var apiVersion = string.IsNullOrWhiteSpace(_options.AzureOpenAIApiVersion)
-            ? "2024-06-01"
-            : _options.AzureOpenAIApiVersion.Trim();
+        var model = string.IsNullOrWhiteSpace(embeddingModel)
+            ? "text-embedding-3-small"
+            : embeddingModel.Trim();
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            $"{endpoint}/openai/deployments/{deployment}/embeddings?api-version={apiVersion}");
+            $"{ResolveBaseUrl()}/embeddings");
 
-        request.Headers.Add("api-key", _options.AzureOpenAIKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(
-            JsonSerializer.Serialize(new { input = chunks }),
+            JsonSerializer.Serialize(new
+            {
+                model,
+                input = chunks
+            }),
             Encoding.UTF8,
             "application/json");
 
@@ -48,7 +46,7 @@ public class AzureOpenAiTenantEmbeddingGenerator(
         using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken);
 
         if (!document.RootElement.TryGetProperty("data", out var dataElement) || dataElement.ValueKind != JsonValueKind.Array)
-            throw new InvalidOperationException("Azure OpenAI embeddings response did not include an embeddings array.");
+            throw new InvalidOperationException("OpenAI embeddings response did not include an embeddings array.");
 
         var embeddings = dataElement
             .EnumerateArray()
@@ -57,15 +55,25 @@ public class AzureOpenAiTenantEmbeddingGenerator(
             .ToList();
 
         if (embeddings.Count != chunks.Count)
-            throw new InvalidOperationException("Azure OpenAI returned a different number of embeddings than requested.");
+            throw new InvalidOperationException("OpenAI returned a different number of embeddings than requested.");
 
         return embeddings;
     }
 
+    private string ResolveBaseUrl()
+        => string.IsNullOrWhiteSpace(_options.OpenAIBaseUrl)
+            ? "https://api.openai.com/v1"
+            : _options.OpenAIBaseUrl.TrimEnd('/');
+
+    private string? ResolveApiKey()
+        => string.IsNullOrWhiteSpace(_options.OpenAIApiKey)
+            ? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            : _options.OpenAIApiKey;
+
     private static float[] ParseEmbedding(JsonElement element)
     {
         if (!element.TryGetProperty("embedding", out var embeddingElement) || embeddingElement.ValueKind != JsonValueKind.Array)
-            throw new InvalidOperationException("Azure OpenAI embedding item did not include an embedding vector.");
+            throw new InvalidOperationException("OpenAI embedding item did not include an embedding vector.");
 
         return embeddingElement
             .EnumerateArray()

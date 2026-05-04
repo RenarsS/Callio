@@ -6,7 +6,7 @@ namespace Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 public class TenantEmbeddingGenerator(
     IOptions<TenantKnowledgeIngestionOptions> options,
     DeterministicTenantEmbeddingGenerator deterministicGenerator,
-    AzureOpenAiTenantEmbeddingGenerator azureOpenAiGenerator) : ITenantEmbeddingGenerator
+    OpenAiTenantEmbeddingGenerator openAiGenerator) : ITenantEmbeddingGenerator
 {
     private readonly TenantKnowledgeIngestionOptions _options = options.Value;
 
@@ -14,10 +14,10 @@ public class TenantEmbeddingGenerator(
         IReadOnlyList<string> chunks,
         string embeddingModel,
         CancellationToken cancellationToken = default)
-        => UseAzureOpenAi()
-            ? azureOpenAiGenerator.GenerateEmbeddingsAsync(chunks, embeddingModel, cancellationToken)
+        => UseOpenAi()
+            ? openAiGenerator.GenerateEmbeddingsAsync(chunks, embeddingModel, cancellationToken)
             : deterministicGenerator.GenerateEmbeddingsAsync(chunks, embeddingModel, cancellationToken);
 
-    private bool UseAzureOpenAi()
-        => string.Equals(_options.EmbeddingProvider, "AzureOpenAI", StringComparison.OrdinalIgnoreCase);
+    private bool UseOpenAi()
+        => string.Equals(_options.EmbeddingProvider, "OpenAI", StringComparison.OrdinalIgnoreCase);
 }

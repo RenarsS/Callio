@@ -1,12 +1,13 @@
 using Callio.Generation.Application.Generation;
 using Callio.Generation.Infrastructure.Options;
 using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 
 namespace Callio.Generation.Infrastructure.Services;
 
-public class AzureOpenAiGenerationCompletionClient(IOptions<TenantGenerationOptions> options) : IGenerationCompletionClient
+public class OpenAiGenerationCompletionClient(IOptions<TenantGenerationOptions> options) : IGenerationCompletionClient
 {
     private static readonly HttpClient HttpClient = new();
     private readonly TenantGenerationOptions _options = options.Value;
@@ -17,32 +18,26 @@ public class AzureOpenAiGenerationCompletionClient(IOptions<TenantGenerationOpti
         string model,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_options.AzureOpenAIEndpoint))
-            throw new InvalidOperationException("Azure OpenAI endpoint is required for generation.");
+        var apiKey = ResolveApiKey();
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new InvalidOperationException("OpenAI API key is required for generation.");
 
-        if (string.IsNullOrWhiteSpace(_options.AzureOpenAIKey))
-            throw new InvalidOperationException("Azure OpenAI key is required for generation.");
+        var resolvedModel = string.IsNullOrWhiteSpace(model)
+            ? _options.GenerationModel
+            : model.Trim();
 
-        var deployment = string.IsNullOrWhiteSpace(_options.AzureOpenAIChatDeployment)
-            ? model
-            : _options.AzureOpenAIChatDeployment.Trim();
-
-        if (string.IsNullOrWhiteSpace(deployment))
-            throw new InvalidOperationException("Azure OpenAI chat deployment is required for generation.");
-
-        var endpoint = _options.AzureOpenAIEndpoint.TrimEnd('/');
-        var apiVersion = string.IsNullOrWhiteSpace(_options.AzureOpenAIApiVersion)
-            ? "2024-06-01"
-            : _options.AzureOpenAIApiVersion.Trim();
+        if (string.IsNullOrWhiteSpace(resolvedModel))
+            throw new InvalidOperationException("OpenAI model is required for generation.");
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            $"{endpoint}/openai/deployments/{deployment}/chat/completions?api-version={apiVersion}");
+            $"{ResolveBaseUrl()}/chat/completions");
 
-        request.Headers.Add("api-key", _options.AzureOpenAIKey);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(
             JsonSerializer.Serialize(new
             {
+                model = resolvedModel,
                 messages = new[]
                 {
                     new { role = "system", content = systemPrompt },
@@ -67,13 +62,23 @@ public class AzureOpenAiGenerationCompletionClient(IOptions<TenantGenerationOpti
             .GetString();
 
         if (string.IsNullOrWhiteSpace(content))
-            throw new InvalidOperationException("Azure OpenAI generation response did not include content.");
+            throw new InvalidOperationException("OpenAI generation response did not include content.");
 
         return new GenerationCompletionResultDto(
             content,
-            deployment,
+            resolvedModel,
             EstimateTokens(content));
     }
+
+    private string ResolveBaseUrl()
+        => string.IsNullOrWhiteSpace(_options.OpenAIBaseUrl)
+            ? "https://api.openai.com/v1"
+            : _options.OpenAIBaseUrl.TrimEnd('/');
+
+    private string? ResolveApiKey()
+        => string.IsNullOrWhiteSpace(_options.OpenAIApiKey)
+            ? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
+            : _options.OpenAIApiKey;
 
     private static int EstimateTokens(string value)
         => Math.Max(1, (int)Math.Ceiling((value?.Length ?? 0) / 4d));

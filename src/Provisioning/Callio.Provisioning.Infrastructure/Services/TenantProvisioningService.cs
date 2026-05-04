@@ -55,7 +55,14 @@ public class TenantProvisioningService(
 
         await tenantKnowledgeConfigurationSetupService.EnsurePendingAsync(command.TenantId, cancellationToken);
 
-        if (provisioning.Status is ProvisioningStatus.InProgress or ProvisioningStatus.Succeeded or ProvisioningStatus.Failed)
+        if (provisioning.Status == ProvisioningStatus.InProgress)
+        {
+            await provisioningDbContext.SaveChangesAsync(cancellationToken);
+            return (await GetStatusAsync(provisioning.TenantId, cancellationToken))!;
+        }
+
+        if (provisioning.Status == ProvisioningStatus.Failed
+            || (provisioning.Status == ProvisioningStatus.Succeeded && !HasPendingSteps(provisioning)))
         {
             await provisioningDbContext.SaveChangesAsync(cancellationToken);
             return (await GetStatusAsync(provisioning.TenantId, cancellationToken))!;
@@ -324,6 +331,9 @@ public class TenantProvisioningService(
                 .ToList(),
             _ => []
         };
+
+    private static bool HasPendingSteps(TenantInfrastructureProvisioning provisioning)
+        => provisioning.Steps.Any(x => x.Status == ProvisioningStepStatus.Pending);
 
     private async Task PublishSuccessAsync(TenantInfrastructureProvisioning provisioning, CancellationToken cancellationToken)
     {

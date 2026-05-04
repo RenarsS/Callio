@@ -13,7 +13,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-var builder = Host.CreateApplicationBuilder();
+var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 builder.Logging.ClearProviders();
 builder.Logging.AddSimpleConsole(options =>
@@ -28,13 +32,14 @@ var callioDbConnectionString = builder.Configuration.GetConnectionString("Callio
 builder.Services.Configure<TenantProvisioningOptions>(
     builder.Configuration.GetSection(TenantProvisioningOptions.SectionName));
 
-builder.Services.AddDbContext<AdminDbContext>(options => options.UseSqlServer(callioDbConnectionString));
-builder.Services.AddDbContext<AppIdentityDbContext>(options => options.UseSqlServer(callioDbConnectionString));
-builder.Services.AddDbContext<ProvisioningDbContext>(options => options.UseSqlServer(callioDbConnectionString));
+builder.Services.AddDbContext<AdminDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
+builder.Services.AddDbContext<AppIdentityDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
+builder.Services.AddDbContext<ProvisioningDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
 
 builder.Services.AddSingleton<ITenantDatabaseConnectionStringFactory, TenantDatabaseConnectionStringFactory>();
 builder.Services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();
 builder.Services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResourceNamingStrategy>();
+builder.Services.AddSingleton<TenantVectorStoreCosmosContext>();
 builder.Services.AddKnowledgeModule(builder.Configuration);
 builder.Services.AddGenerationModule(builder.Configuration);
 
@@ -60,3 +65,15 @@ await using var scope = host.Services.CreateAsyncScope();
 
 var runner = scope.ServiceProvider.GetRequiredService<DatabaseCommandRunner>();
 return await runner.RunAsync(command, cancellationSource.Token);
+
+static void UseSqlServerWithRetry(DbContextOptionsBuilder options, string connectionString)
+    => options.UseSqlServer(
+        connectionString,
+        sqlOptions => sqlOptions
+            .MigrationsHistoryTable(
+                SqlServerTransientRetry.MigrationsHistoryTable,
+                SqlServerTransientRetry.MigrationsHistorySchema)
+            .EnableRetryOnFailure(
+                SqlServerTransientRetry.MaxRetryCount,
+                SqlServerTransientRetry.MaxRetryDelay,
+                SqlServerTransientRetry.AdditionalErrorNumbers));

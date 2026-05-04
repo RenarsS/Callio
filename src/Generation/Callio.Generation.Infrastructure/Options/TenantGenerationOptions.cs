@@ -18,13 +18,9 @@ public sealed class TenantGenerationOptions
 
     public int BlobContentMaxCharacters { get; set; } = 3000;
 
-    public string AzureOpenAIEndpoint { get; set; } = string.Empty;
+    public string OpenAIApiKey { get; set; } = string.Empty;
 
-    public string AzureOpenAIKey { get; set; } = string.Empty;
-
-    public string AzureOpenAIChatDeployment { get; set; } = string.Empty;
-
-    public string AzureOpenAIApiVersion { get; set; } = "2024-06-01";
+    public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1";
 
     public TenantGenerationPromptTemplateOptions[] PromptTemplates { get; set; } =
     [

@@ -16,11 +16,7 @@ public sealed class TenantKnowledgeIngestionOptions
 
     public int DeterministicEmbeddingDimensions { get; set; } = 128;
 
-    public string AzureOpenAIEndpoint { get; set; } = string.Empty;
+    public string OpenAIApiKey { get; set; } = string.Empty;
 
-    public string AzureOpenAIKey { get; set; } = string.Empty;
-
-    public string AzureOpenAIEmbeddingDeployment { get; set; } = string.Empty;
-
-    public string AzureOpenAIApiVersion { get; set; } = "2024-06-01";
+    public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1";
 }

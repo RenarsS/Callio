@@ -1,3 +1,5 @@
+using Callio.Provisioning.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -5,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Callio.Provisioning.Infrastructure.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(ProvisioningDbContext))]
     [Migration("20260501213000_Provisioning_AddTenantBlobStorage")]
     public partial class Provisioning_AddTenantBlobStorage : Migration
     {

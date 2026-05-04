@@ -7,7 +7,7 @@ namespace Callio.Generation.Infrastructure.Services;
 public class TenantGenerationCompletionClient(
     IOptions<TenantGenerationOptions> options,
     DeterministicGenerationCompletionClient deterministicClient,
-    AzureOpenAiGenerationCompletionClient azureOpenAiClient) : IGenerationCompletionClient
+    OpenAiGenerationCompletionClient openAiClient) : IGenerationCompletionClient
 {
     private readonly TenantGenerationOptions _options = options.Value;
 
@@ -16,10 +16,10 @@ public class TenantGenerationCompletionClient(
         string userPrompt,
         string model,
         CancellationToken cancellationToken = default)
-        => UseAzureOpenAi()
-            ? azureOpenAiClient.CompleteAsync(systemPrompt, userPrompt, model, cancellationToken)
+        => UseOpenAi()
+            ? openAiClient.CompleteAsync(systemPrompt, userPrompt, model, cancellationToken)
             : deterministicClient.CompleteAsync(systemPrompt, userPrompt, model, cancellationToken);
 
-    private bool UseAzureOpenAi()
-        => string.Equals(_options.CompletionProvider, "AzureOpenAI", StringComparison.OrdinalIgnoreCase);
+    private bool UseOpenAi()
+        => string.Equals(_options.CompletionProvider, "OpenAI", StringComparison.OrdinalIgnoreCase);
 }

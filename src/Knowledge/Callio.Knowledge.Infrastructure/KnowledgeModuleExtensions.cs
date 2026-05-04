@@ -6,6 +6,7 @@ using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Knowledge.Infrastructure.Repositories;
 using Callio.Knowledge.Infrastructure.Services;
 using Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
+using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,7 +24,15 @@ public static class KnowledgeModuleExtensions
 
         services.AddDbContext<KnowledgeDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb")));
+                configuration.GetConnectionString("CallioDb"),
+                sqlOptions => sqlOptions
+                    .MigrationsHistoryTable(
+                        SqlServerTransientRetry.MigrationsHistoryTable,
+                        SqlServerTransientRetry.MigrationsHistorySchema)
+                    .EnableRetryOnFailure(
+                        SqlServerTransientRetry.MaxRetryCount,
+                        SqlServerTransientRetry.MaxRetryDelay,
+                        SqlServerTransientRetry.AdditionalErrorNumbers)));
 
         services.AddScoped<IKnowledgeMetadataStoreProvisioner, SqlServerKnowledgeMetadataStoreProvisioner>();
         services.AddScoped<ITenantKnowledgeConfigurationStoreProvisioner, SqlServerTenantKnowledgeConfigurationStoreProvisioner>();
@@ -44,9 +53,9 @@ public static class KnowledgeModuleExtensions
         services.AddScoped<AzureBlobTenantKnowledgeBlobStorage>();
         services.AddScoped<ITenantKnowledgeBlobStorage, TenantKnowledgeBlobStorage>();
         services.AddScoped<DeterministicTenantEmbeddingGenerator>();
+        services.AddScoped<OpenAiTenantEmbeddingGenerator>();
         services.AddScoped<ITenantEmbeddingGenerator, TenantEmbeddingGenerator>();
         services.AddScoped<ITenantKnowledgeTextExtractor, TenantKnowledgeTextExtractor>();
-        services.AddScoped<AzureOpenAiTenantEmbeddingGenerator>();
 
         return services;
     }

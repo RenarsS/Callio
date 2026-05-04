@@ -15,7 +15,10 @@ public static class AdminModuleExtensions
         services.AddScoped<ITenantRequestService, TenantRequestService>();
         services.AddDbContext<AdminDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb")));
+                configuration.GetConnectionString("CallioDb"),
+                sqlOptions => sqlOptions
+                    .MigrationsHistoryTable("__EFMigrationsHistory", "dbo")
+                    .EnableRetryOnFailure()));
         
         return services;
     }

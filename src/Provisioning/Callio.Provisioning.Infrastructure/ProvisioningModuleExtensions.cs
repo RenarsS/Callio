@@ -29,7 +29,15 @@ public static class ProvisioningModuleExtensions
 
         services.AddDbContext<ProvisioningDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb")));
+                configuration.GetConnectionString("CallioDb"),
+                sqlOptions => sqlOptions
+                    .MigrationsHistoryTable(
+                        SqlServerTransientRetry.MigrationsHistoryTable,
+                        SqlServerTransientRetry.MigrationsHistorySchema)
+                    .EnableRetryOnFailure(
+                        SqlServerTransientRetry.MaxRetryCount,
+                        SqlServerTransientRetry.MaxRetryDelay,
+                        SqlServerTransientRetry.AdditionalErrorNumbers)));
 
         return services;
     }

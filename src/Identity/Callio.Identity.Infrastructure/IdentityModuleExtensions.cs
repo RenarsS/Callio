@@ -17,7 +17,10 @@ public static class IdentityModuleExtensions
     {
         services.AddDbContext<AppIdentityDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb")));
+                configuration.GetConnectionString("CallioDb"),
+                sqlOptions => sqlOptions
+                    .MigrationsHistoryTable("__EFMigrationsHistory", "dbo")
+                    .EnableRetryOnFailure()));
 
         services.AddIdentityApiEndpoints<ApplicationUser>()
             .AddEntityFrameworkStores<AppIdentityDbContext>();

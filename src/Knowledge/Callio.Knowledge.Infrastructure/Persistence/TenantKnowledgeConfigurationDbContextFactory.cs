@@ -11,7 +11,16 @@ public class TenantKnowledgeConfigurationDbContextFactory(
     {
         var optionsBuilder = new DbContextOptionsBuilder<TenantKnowledgeConfigurationDbContext>();
         optionsBuilder
-            .UseSqlServer(connectionStringFactory.CreateTenantConnectionString())
+            .UseSqlServer(
+                connectionStringFactory.CreateTenantConnectionString(),
+                sqlOptions => sqlOptions
+                    .MigrationsHistoryTable(
+                        SqlServerTransientRetry.MigrationsHistoryTable,
+                        SqlServerTransientRetry.MigrationsHistorySchema)
+                    .EnableRetryOnFailure(
+                        SqlServerTransientRetry.MaxRetryCount,
+                        SqlServerTransientRetry.MaxRetryDelay,
+                        SqlServerTransientRetry.AdditionalErrorNumbers))
             .ReplaceService<IModelCacheKeyFactory, TenantKnowledgeConfigurationModelCacheKeyFactory>();
 
         return new TenantKnowledgeConfigurationDbContext(optionsBuilder.Options, schemaName);

@@ -111,10 +111,13 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_{TenantGenerationDbCo
     CREATE INDEX [IX_{TenantGenerationDbContext.ResponseSourcesTableName}_ChunkId] ON [{escapedSchemaName}].[{TenantGenerationDbContext.ResponseSourcesTableName}]([ChunkId]);
 """;
 
-        await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
-        await connection.OpenAsync(cancellationToken);
+        await SqlServerTransientRetry.ExecuteAsync(async token =>
+        {
+            await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
+            await connection.OpenAsync(token);
 
-        await using var command = new SqlCommand(commandText, connection);
-        await command.ExecuteNonQueryAsync(cancellationToken);
+            await using var command = new SqlCommand(commandText, connection);
+            await command.ExecuteNonQueryAsync(token);
+        }, cancellationToken);
     }
 }

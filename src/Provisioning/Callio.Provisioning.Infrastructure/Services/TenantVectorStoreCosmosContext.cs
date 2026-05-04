@@ -1,6 +1,7 @@
 using Callio.Provisioning.Infrastructure.Options;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
+using System.Collections.ObjectModel;
 
 namespace Callio.Provisioning.Infrastructure.Services;
 
@@ -41,6 +42,46 @@ public sealed class TenantVectorStoreCosmosContext(IOptions<TenantProvisioningOp
             .CreateDatabaseIfNotExistsAsync(DatabaseName, cancellationToken: cancellationToken);
 
         return response.Database;
+    }
+
+    public async Task<Container> CreateVectorContainerIfNotExistsAsync(
+        string containerName,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(containerName))
+            throw new ArgumentException("Container name is required.", nameof(containerName));
+
+        if (!UsesAzureCosmos)
+            throw new InvalidOperationException("Azure Cosmos vector storage is not enabled for this environment.");
+
+        var database = await CreateDatabaseIfNotExistsAsync(cancellationToken);
+        var properties = new ContainerProperties(containerName.Trim(), SectionKeyPath)
+        {
+            VectorEmbeddingPolicy = new VectorEmbeddingPolicy(
+                new Collection<Embedding>
+                {
+                    new()
+                    {
+                        Path = VectorPath,
+                        DataType = VectorDataType.Float32,
+                        DistanceFunction = DistanceFunction.Cosine,
+                        Dimensions = VectorDimensions
+                    }
+                }),
+            IndexingPolicy = new IndexingPolicy()
+        };
+
+        properties.IndexingPolicy.VectorIndexes.Add(new VectorIndexPath
+        {
+            Path = VectorPath,
+            Type = ResolveVectorIndexType()
+        });
+
+        var response = await database.CreateContainerIfNotExistsAsync(
+            properties,
+            cancellationToken: cancellationToken);
+
+        return response.Container;
     }
 
     public Container GetRequiredContainer(string containerName)
