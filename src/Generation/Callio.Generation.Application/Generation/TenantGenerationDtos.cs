@@ -68,6 +68,35 @@ public record RetrievedGenerationSourceDto(
     string? BlobUri,
     string Content);
 
+public record TenantGenerationKnowledgeContextDto(
+    TenantGenerationKnowledgeConfigurationDto Configuration,
+    IReadOnlyList<RetrievedGenerationSourceDto> Sources);
+
+public record TenantGenerationKnowledgeConfigurationDto(
+    int Id,
+    int TenantId,
+    string SystemPrompt,
+    string AssistantInstructionPrompt,
+    int ChunkSize,
+    int ChunkOverlap,
+    int TopKRetrievalCount,
+    int MaximumChunksInFinalContext,
+    decimal MinimumSimilarityThreshold,
+    IReadOnlyList<string> AllowedFileTypes,
+    long MaximumFileSizeBytes,
+    bool AutoProcessOnUpload,
+    bool ManualApprovalRequiredBeforeIndexing,
+    bool VersioningEnabled,
+    bool IsActive,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc,
+    TenantGenerationKnowledgeModelConstraintsDto Models);
+
+public record TenantGenerationKnowledgeModelConstraintsDto(
+    string EmbeddingProvider,
+    string EmbeddingModel,
+    string GenerationModel);
+
 public record GenerationPromptCompositionDto(
     string SystemPrompt,
     string UserPrompt,

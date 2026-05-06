@@ -2,6 +2,8 @@ using Carter;
 using Callio.Admin.API.Modules;
 using Callio.Admin.Infrastructure;
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Core.Infrastructure.Messaging.Knowledge;
+using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.Generation.API.Modules;
 using Callio.Generation.Infrastructure;
 using Callio.Identity.Infrastructure;
@@ -41,6 +43,10 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<TenantApprovedConsumer>();
     x.AddConsumer<TenantApprovedProvisioningConsumer>();
     x.AddConsumer<TenantInfrastructureProvisioningSucceededConsumer>();
+    x.AddConsumer<GetTenantProvisioningResourcesConsumer>();
+    x.AddConsumer<RetrieveTenantGenerationSourcesConsumer>();
+    x.AddRequestClient<GetTenantProvisioningResourcesRequest>();
+    x.AddRequestClient<RetrieveTenantGenerationSourcesRequest>();
 
     var transport = builder.Configuration["MassTransit:Transport"];
     if (string.Equals(transport, "RabbitMq", StringComparison.OrdinalIgnoreCase))

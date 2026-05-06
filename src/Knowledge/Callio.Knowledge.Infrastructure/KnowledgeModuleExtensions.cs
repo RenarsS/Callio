@@ -21,6 +21,8 @@ public static class KnowledgeModuleExtensions
             configuration.GetSection(TenantKnowledgeConfigurationOptions.SectionName));
         services.Configure<TenantKnowledgeIngestionOptions>(
             configuration.GetSection(TenantKnowledgeIngestionOptions.SectionName));
+        services.Configure<TenantGenerationSourceRetrievalOptions>(
+            configuration.GetSection(TenantGenerationSourceRetrievalOptions.SectionName));
 
         services.AddDbContext<KnowledgeDbContext>(options =>
             options.UseSqlServer(

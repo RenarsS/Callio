@@ -2,7 +2,6 @@ using Callio.Generation.Application.Generation;
 using Callio.Generation.Domain;
 using Callio.Generation.Domain.Enums;
 using Callio.Generation.Infrastructure.Options;
-using Callio.Knowledge.Application.KnowledgeConfigurations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text;
@@ -11,7 +10,6 @@ namespace Callio.Generation.Infrastructure.Services;
 
 public class TenantGenerationService(
     IGenerationPromptCatalog promptCatalog,
-    ITenantKnowledgeConfigurationService knowledgeConfigurationService,
     IGenerationKnowledgeSourceProvider sourceProvider,
     IGenerationCompletionClient completionClient,
     ITenantGenerationRepository repository,
@@ -41,15 +39,15 @@ public class TenantGenerationService(
     {
         ValidateCommand(command);
 
-        var configuration = await GetOrCreateConfigurationAsync(command.TenantId, cancellationToken);
         var template = await promptCatalog.GetTemplateAsync(command.TenantId, command.PromptKey, cancellationToken);
         var dataSources = MergeDataSources(template.DataSources, command.DataSources);
-        var sources = await sourceProvider.RetrieveAsync(
+        var knowledgeContext = await sourceProvider.RetrieveAsync(
             command.TenantId,
             command.Input,
-            configuration,
             dataSources,
             cancellationToken);
+        var configuration = knowledgeContext.Configuration;
+        var sources = knowledgeContext.Sources;
 
         var composition = ComposePrompt(command, configuration, template, sources);
         var model = string.IsNullOrWhiteSpace(configuration.Models.GenerationModel)
@@ -121,22 +119,9 @@ public class TenantGenerationService(
         return response?.ToDto();
     }
 
-    private async Task<TenantKnowledgeConfigurationDto> GetOrCreateConfigurationAsync(
-        int tenantId,
-        CancellationToken cancellationToken)
-    {
-        var active = await knowledgeConfigurationService.GetActiveAsync(tenantId, cancellationToken);
-        if (active is not null)
-            return active;
-
-        return await knowledgeConfigurationService.CreateDefaultAsync(
-            new CreateDefaultTenantKnowledgeConfigurationCommand(tenantId),
-            cancellationToken);
-    }
-
     private GenerationPromptCompositionDto ComposePrompt(
         GenerateTenantResponseCommand command,
-        TenantKnowledgeConfigurationDto configuration,
+        TenantGenerationKnowledgeConfigurationDto configuration,
         GenerationPromptTemplateDto template,
         IReadOnlyList<RetrievedGenerationSourceDto> sources)
     {
@@ -166,7 +151,7 @@ public class TenantGenerationService(
 
     private static IReadOnlyDictionary<string, string> CreateReplacements(
         GenerateTenantResponseCommand command,
-        TenantKnowledgeConfigurationDto configuration,
+        TenantGenerationKnowledgeConfigurationDto configuration,
         string context,
         int sourceCount)
     {

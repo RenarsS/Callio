@@ -15,11 +15,11 @@
       <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.3" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.3" />
       <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.3" />
+      <PackageReference Include="MassTransit" Version="8.5.2" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\Knowledge\Callio.Knowledge.Infrastructure\Callio.Knowledge.Infrastructure.csproj" />
-      <ProjectReference Include="..\..\Provisioning\Callio.Provisioning.Infrastructure\Callio.Provisioning.Infrastructure.csproj" />
+      <ProjectReference Include="..\..\Core\Callio.Core.Infrastructure\Callio.Core.Infrastructure.csproj" />
       <ProjectReference Include="..\Callio.Generation.Application\Callio.Generation.Application.csproj" />
       <ProjectReference Include="..\Callio.Generation.Domain\Callio.Generation.Domain.csproj" />
     </ItemGroup>

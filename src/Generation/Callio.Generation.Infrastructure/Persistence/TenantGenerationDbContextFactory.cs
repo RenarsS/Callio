@@ -1,11 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Callio.Provisioning.Infrastructure.Services;
 
 namespace Callio.Generation.Infrastructure.Persistence;
 
 public class TenantGenerationDbContextFactory(
-    ITenantDatabaseConnectionStringFactory connectionStringFactory) : ITenantGenerationDbContextFactory
+    ITenantGenerationDatabaseConnectionStringFactory connectionStringFactory) : ITenantGenerationDbContextFactory
 {
     public TenantGenerationDbContext Create(string schemaName)
     {
@@ -15,12 +14,12 @@ public class TenantGenerationDbContextFactory(
                 connectionStringFactory.CreateTenantConnectionString(),
                 sqlOptions => sqlOptions
                     .MigrationsHistoryTable(
-                        SqlServerTransientRetry.MigrationsHistoryTable,
-                        SqlServerTransientRetry.MigrationsHistorySchema)
+                        SqlServerGenerationTransientRetry.MigrationsHistoryTable,
+                        SqlServerGenerationTransientRetry.MigrationsHistorySchema)
                     .EnableRetryOnFailure(
-                        SqlServerTransientRetry.MaxRetryCount,
-                        SqlServerTransientRetry.MaxRetryDelay,
-                        SqlServerTransientRetry.AdditionalErrorNumbers))
+                        SqlServerGenerationTransientRetry.MaxRetryCount,
+                        SqlServerGenerationTransientRetry.MaxRetryDelay,
+                        SqlServerGenerationTransientRetry.AdditionalErrorNumbers))
             .ReplaceService<IModelCacheKeyFactory, TenantGenerationModelCacheKeyFactory>();
 
         return new TenantGenerationDbContext(optionsBuilder.Options, schemaName);

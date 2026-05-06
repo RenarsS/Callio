@@ -1,23 +1,22 @@
 using Callio.Generation.Infrastructure.Persistence;
-using Callio.Provisioning.Infrastructure.Provisioners;
-using Callio.Provisioning.Infrastructure.Services;
 using Microsoft.Data.SqlClient;
 
 namespace Callio.Generation.Infrastructure.Provisioners;
 
 public class SqlServerTenantGenerationStoreProvisioner(
-    ITenantDatabaseConnectionStringFactory connectionStringFactory,
-    ITenantDatabaseSchemaProvisioner tenantDatabaseSchemaProvisioner) : ITenantGenerationStoreProvisioner
+    ITenantGenerationDatabaseConnectionStringFactory connectionStringFactory) : ITenantGenerationStoreProvisioner
 {
     public async Task EnsureCreatedAsync(string schemaName, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(schemaName))
             throw new ArgumentException("Schema name is required.", nameof(schemaName));
 
-        await tenantDatabaseSchemaProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
-
         var escapedSchemaName = schemaName.Trim().Replace("]", "]]", StringComparison.Ordinal);
+        var schemaNameLiteral = schemaName.Trim().Replace("'", "''", StringComparison.Ordinal);
         var commandText = $"""
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'{schemaNameLiteral}')
+    EXEC(N'CREATE SCHEMA [{escapedSchemaName}]');
+
 IF OBJECT_ID(N'[{escapedSchemaName}].[{TenantGenerationDbContext.PromptTemplatesTableName}]', N'U') IS NULL
 BEGIN
     CREATE TABLE [{escapedSchemaName}].[{TenantGenerationDbContext.PromptTemplatesTableName}]
@@ -111,7 +110,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_{TenantGenerationDbCo
     CREATE INDEX [IX_{TenantGenerationDbContext.ResponseSourcesTableName}_ChunkId] ON [{escapedSchemaName}].[{TenantGenerationDbContext.ResponseSourcesTableName}]([ChunkId]);
 """;
 
-        await SqlServerTransientRetry.ExecuteAsync(async token =>
+        await SqlServerGenerationTransientRetry.ExecuteAsync(async token =>
         {
             await using var connection = new SqlConnection(connectionStringFactory.CreateTenantConnectionString());
             await connection.OpenAsync(token);

@@ -1,12 +1,17 @@
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Core.Infrastructure.Messaging.Knowledge;
+using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.DatabaseTool;
 using Callio.Generation.Infrastructure;
 using Callio.Identity.Infrastructure.Persistence;
+using Callio.Knowledge.Infrastructure.Consumers;
 using Callio.Knowledge.Infrastructure;
+using Callio.Provisioning.Infrastructure.Consumers;
 using Callio.Provisioning.Infrastructure.Options;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Services;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +47,15 @@ builder.Services.AddSingleton<ITenantResourceNamingStrategy, DefaultTenantResour
 builder.Services.AddSingleton<TenantVectorStoreCosmosContext>();
 builder.Services.AddKnowledgeModule(builder.Configuration);
 builder.Services.AddGenerationModule(builder.Configuration);
+builder.Services.AddMassTransit(x =>
+{
+    x.SetKebabCaseEndpointNameFormatter();
+    x.AddConsumer<GetTenantProvisioningResourcesConsumer>();
+    x.AddConsumer<RetrieveTenantGenerationSourcesConsumer>();
+    x.AddRequestClient<GetTenantProvisioningResourcesRequest>();
+    x.AddRequestClient<RetrieveTenantGenerationSourcesRequest>();
+    x.UsingInMemory((context, cfg) => cfg.ConfigureEndpoints(context));
+});
 
 builder.Services.AddScoped<TenantSchemaMigrationRunner>();
 builder.Services.AddScoped<TestTenantRequestSeeder>();

@@ -1,6 +1,7 @@
 using Callio.Generation.Application.Generation;
 using Callio.Generation.Infrastructure.Options;
 using Callio.Generation.Infrastructure.Persistence;
+using Callio.Generation.Infrastructure.Provisioning;
 using Callio.Generation.Infrastructure.Provisioners;
 using Callio.Generation.Infrastructure.Repositories;
 using Callio.Generation.Infrastructure.Services;
@@ -17,10 +18,12 @@ public static class GenerationModuleExtensions
             configuration.GetSection(TenantGenerationOptions.SectionName));
 
         services.AddSingleton<ITenantGenerationDbContextFactory, TenantGenerationDbContextFactory>();
+        services.AddSingleton<ITenantGenerationDatabaseConnectionStringFactory, TenantGenerationDatabaseConnectionStringFactory>();
+        services.AddScoped<ITenantGenerationProvisioningResourcesProvider, BrokeredTenantGenerationProvisioningResourcesProvider>();
         services.AddScoped<ITenantGenerationStoreProvisioner, SqlServerTenantGenerationStoreProvisioner>();
         services.AddScoped<ITenantGenerationRepository, TenantGenerationRepository>();
         services.AddScoped<IGenerationPromptCatalog, GenerationPromptCatalog>();
-        services.AddScoped<IGenerationKnowledgeSourceProvider, TenantGenerationKnowledgeSourceProvider>();
+        services.AddScoped<IGenerationKnowledgeSourceProvider, BrokeredGenerationKnowledgeSourceProvider>();
         services.AddScoped<DeterministicGenerationCompletionClient>();
         services.AddScoped<OpenAiGenerationCompletionClient>();
         services.AddScoped<IGenerationCompletionClient, TenantGenerationCompletionClient>();

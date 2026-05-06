@@ -2,15 +2,13 @@ using Callio.Generation.Application.Generation;
 using Callio.Generation.Domain;
 using Callio.Generation.Infrastructure.Persistence;
 using Callio.Generation.Infrastructure.Provisioners;
-using Callio.Provisioning.Infrastructure.Persistence;
-using Callio.Provisioning.Infrastructure.Services;
+using Callio.Generation.Infrastructure.Provisioning;
 using Microsoft.EntityFrameworkCore;
 
 namespace Callio.Generation.Infrastructure.Repositories;
 
 public class TenantGenerationRepository(
-    ProvisioningDbContext provisioningDbContext,
-    ITenantResourceNamingStrategy tenantResourceNamingStrategy,
+    ITenantGenerationProvisioningResourcesProvider provisioningResourcesProvider,
     ITenantGenerationDbContextFactory dbContextFactory,
     ITenantGenerationStoreProvisioner storeProvisioner) : ITenantGenerationRepository
 {
@@ -118,22 +116,8 @@ public class TenantGenerationRepository(
 
     private async Task<TenantGenerationDbContext> CreateContextAsync(int tenantId, CancellationToken cancellationToken)
     {
-        var schemaName = await ResolveSchemaNameAsync(tenantId, cancellationToken);
-        await storeProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
-        return dbContextFactory.Create(schemaName);
-    }
-
-    private async Task<string> ResolveSchemaNameAsync(int tenantId, CancellationToken cancellationToken)
-    {
-        var schemaName = await provisioningDbContext.TenantInfrastructureProvisionings
-            .AsNoTracking()
-            .Where(x => x.TenantId == tenantId)
-            .Select(x => x.DatabaseSchema)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (!string.IsNullOrWhiteSpace(schemaName))
-            return schemaName;
-
-        return tenantResourceNamingStrategy.Create(tenantId).DatabaseSchema;
+        var resources = await provisioningResourcesProvider.GetAsync(tenantId, cancellationToken);
+        await storeProvisioner.EnsureCreatedAsync(resources.DatabaseSchema, cancellationToken);
+        return dbContextFactory.Create(resources.DatabaseSchema);
     }
 }

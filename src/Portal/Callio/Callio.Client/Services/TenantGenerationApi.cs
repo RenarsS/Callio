@@ -56,6 +56,22 @@ public class TenantGenerationApi(HttpClient httpClient)
                ?? [];
     }
 
+    public async Task<PortalGenerationResponse> GenerateResponseAsync(
+        int tenantId,
+        GeneratePortalTenantResponseRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var response = await httpClient.PostAsJsonAsync(
+            $"/api/portal/tenants/{tenantId}/generation/responses",
+            request,
+            cancellationToken);
+
+        await PortalApiResponseHelper.EnsureSuccessAsync(response, cancellationToken);
+
+        return await response.Content.ReadFromJsonAsync<PortalGenerationResponse>(cancellationToken)
+               ?? throw new InvalidOperationException("Generation response was empty.");
+    }
+
     public async Task<PortalGenerationResponse?> GetResponseAsync(
         int tenantId,
         int responseId,
@@ -72,3 +88,12 @@ public record SavePortalGenerationPromptRequest(
     string SystemPrompt,
     string UserPromptTemplate,
     IReadOnlyList<PortalGenerationDataSourceResponse>? DataSources);
+
+public record GeneratePortalTenantResponseRequest(
+    string Input,
+    string? PromptKey,
+    IReadOnlyList<PortalGenerationDataSourceResponse>? DataSources,
+    IReadOnlyDictionary<string, string>? Variables,
+    bool? SaveResponse,
+    string? RequestedByUserId,
+    string? RequestedByDisplayName);

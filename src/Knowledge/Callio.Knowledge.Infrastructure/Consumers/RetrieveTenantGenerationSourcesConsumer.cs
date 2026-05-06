@@ -1,21 +1,23 @@
-using Callio.Generation.Application.Generation;
-using Callio.Generation.Infrastructure.Options;
+using Callio.Core.Infrastructure.Messaging.Knowledge;
 using Callio.Knowledge.Application.KnowledgeConfigurations;
 using Callio.Knowledge.Domain;
 using Callio.Knowledge.Domain.Enums;
+using Callio.Knowledge.Infrastructure.Options;
 using Callio.Knowledge.Infrastructure.Persistence;
 using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Services;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
 
-namespace Callio.Generation.Infrastructure.Services;
+namespace Callio.Knowledge.Infrastructure.Consumers;
 
-public class TenantGenerationKnowledgeSourceProvider(
+public class RetrieveTenantGenerationSourcesConsumer(
+    ITenantKnowledgeConfigurationService configurationService,
     ProvisioningDbContext provisioningDbContext,
     ITenantResourceNamingStrategy tenantResourceNamingStrategy,
     ITenantKnowledgeDocumentDbContextFactory dbContextFactory,
@@ -24,21 +26,51 @@ public class TenantGenerationKnowledgeSourceProvider(
     ITenantKnowledgeVectorStore vectorStore,
     ITenantKnowledgeBlobStorage blobStorage,
     ITenantKnowledgeTextExtractor textExtractor,
-    IOptions<TenantGenerationOptions> options,
-    ILogger<TenantGenerationKnowledgeSourceProvider> logger) : IGenerationKnowledgeSourceProvider
+    IOptions<TenantGenerationSourceRetrievalOptions> options,
+    ILogger<RetrieveTenantGenerationSourcesConsumer> logger)
+    : IConsumer<RetrieveTenantGenerationSourcesRequest>
 {
-    private readonly TenantGenerationOptions _options = options.Value;
+    private readonly TenantGenerationSourceRetrievalOptions _options = options.Value;
 
-    public async Task<IReadOnlyList<RetrievedGenerationSourceDto>> RetrieveAsync(
+    public async Task Consume(ConsumeContext<RetrieveTenantGenerationSourcesRequest> context)
+    {
+        var message = context.Message;
+        if (message.TenantId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(message.TenantId), "Tenant id must be greater than zero.");
+
+        var configuration = await GetOrCreateConfigurationAsync(message.TenantId, context.CancellationToken);
+        var sources = await RetrieveAsync(
+            message.TenantId,
+            message.Input,
+            configuration,
+            message.DataSources,
+            context.CancellationToken);
+
+        await context.RespondAsync(new RetrieveTenantGenerationSourcesResponse(
+            MapConfiguration(configuration),
+            sources));
+    }
+
+    private async Task<TenantKnowledgeConfigurationDto> GetOrCreateConfigurationAsync(
+        int tenantId,
+        CancellationToken cancellationToken)
+    {
+        var active = await configurationService.GetActiveAsync(tenantId, cancellationToken);
+        if (active is not null)
+            return active;
+
+        return await configurationService.CreateDefaultAsync(
+            new CreateDefaultTenantKnowledgeConfigurationCommand(tenantId),
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<RetrievedTenantGenerationSourceMessage>> RetrieveAsync(
         int tenantId,
         string input,
         TenantKnowledgeConfigurationDto configuration,
-        IReadOnlyList<GenerationDataSourceSelectionDto> dataSources,
-        CancellationToken cancellationToken = default)
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> dataSources,
+        CancellationToken cancellationToken)
     {
-        if (tenantId <= 0)
-            throw new ArgumentOutOfRangeException(nameof(tenantId), "Tenant id must be greater than zero.");
-
         var selections = NormalizeSelections(dataSources);
         var schemaName = await ResolveSchemaNameAsync(tenantId, cancellationToken);
         await storeProvisioner.EnsureCreatedAsync(schemaName, cancellationToken);
@@ -56,7 +88,7 @@ public class TenantGenerationKnowledgeSourceProvider(
         var vectorStoreNamespace = await ResolveVectorStoreNamespaceAsync(tenantId, cancellationToken);
 
         IReadOnlyList<TenantKnowledgeDocument> documents;
-        IReadOnlyList<RetrievedGenerationSourceDto> chunkSources;
+        IReadOnlyList<RetrievedTenantGenerationSourceMessage> chunkSources;
 
         var vectorSearchResult = await TryBuildVectorChunkSourcesAsync(
             tenantId,
@@ -119,7 +151,7 @@ public class TenantGenerationKnowledgeSourceProvider(
         int tenantId,
         string input,
         TenantKnowledgeConfigurationDto configuration,
-        IReadOnlyList<GenerationDataSourceSelectionDto> selections,
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections,
         IReadOnlyList<int> categoryIds,
         IReadOnlyList<int> tagIds,
         IReadOnlyList<string> documentKeys,
@@ -188,7 +220,7 @@ public class TenantGenerationKnowledgeSourceProvider(
                 if (!chunkLookup.TryGetValue((match.DocumentKey, match.ChunkIndex), out var item))
                     return null;
 
-                return new RetrievedGenerationSourceDto(
+                return new RetrievedTenantGenerationSourceMessage(
                     "KnowledgeChunk",
                     item.Document.Id,
                     item.Document.Title,
@@ -211,10 +243,10 @@ public class TenantGenerationKnowledgeSourceProvider(
             : new VectorChunkRetrievalResult(sources, documents);
     }
 
-    private async Task<IReadOnlyList<RetrievedGenerationSourceDto>> BuildChunkSourcesAsync(
+    private async Task<IReadOnlyList<RetrievedTenantGenerationSourceMessage>> BuildChunkSourcesAsync(
         string input,
         TenantKnowledgeConfigurationDto configuration,
-        IReadOnlyList<GenerationDataSourceSelectionDto> selections,
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections,
         IReadOnlyList<TenantKnowledgeDocument> documents,
         CancellationToken cancellationToken)
     {
@@ -226,14 +258,14 @@ public class TenantGenerationKnowledgeSourceProvider(
             return [];
 
         var queryEmbedding = await GenerateQueryEmbeddingAsync(input, configuration.Models.EmbeddingModel, cancellationToken);
-        var scored = chunks
+        return chunks
             .Select(item => CreateScoredChunk(item.Document, item.Chunk, queryEmbedding))
             .Where(item => item.Score is null || item.Score >= configuration.MinimumSimilarityThreshold)
             .OrderByDescending(item => item.Score ?? 0)
             .ThenBy(item => item.Document.Id)
             .ThenBy(item => item.Chunk.ChunkIndex)
             .Take(ResolveFinalLimit(configuration, selections))
-            .Select(item => new RetrievedGenerationSourceDto(
+            .Select(item => new RetrievedTenantGenerationSourceMessage(
                 "KnowledgeChunk",
                 item.Document.Id,
                 item.Document.Title,
@@ -247,13 +279,11 @@ public class TenantGenerationKnowledgeSourceProvider(
                 item.Document.BlobUri,
                 LimitContent(item.Chunk.Content, _options.SourceExcerptMaxCharacters)))
             .ToList();
-
-        return scored;
     }
 
-    private async Task<IReadOnlyList<RetrievedGenerationSourceDto>> BuildBlobSourcesAsync(
+    private async Task<IReadOnlyList<RetrievedTenantGenerationSourceMessage>> BuildBlobSourcesAsync(
         IReadOnlyList<TenantKnowledgeDocument> documents,
-        IReadOnlyList<RetrievedGenerationSourceDto> chunkSources,
+        IReadOnlyList<RetrievedTenantGenerationSourceMessage> chunkSources,
         CancellationToken cancellationToken)
     {
         var selectedDocumentIds = chunkSources
@@ -267,7 +297,7 @@ public class TenantGenerationKnowledgeSourceProvider(
             ? documents.Where(x => selectedDocumentIds.Contains(x.Id)).ToList()
             : documents.Take(3).ToList();
 
-        var results = new List<RetrievedGenerationSourceDto>();
+        var results = new List<RetrievedTenantGenerationSourceMessage>();
         foreach (var document in selectedDocuments)
         {
             try
@@ -285,7 +315,7 @@ public class TenantGenerationKnowledgeSourceProvider(
                 if (string.IsNullOrWhiteSpace(text))
                     continue;
 
-                results.Add(new RetrievedGenerationSourceDto(
+                results.Add(new RetrievedTenantGenerationSourceMessage(
                     "BlobDocument",
                     document.Id,
                     document.Title,
@@ -428,7 +458,7 @@ public class TenantGenerationKnowledgeSourceProvider(
     private async Task<IReadOnlyList<int>> ResolveCategoryIdsAsync(
         TenantKnowledgeDocumentDbContext context,
         int tenantId,
-        IReadOnlyList<GenerationDataSourceSelectionDto> selections,
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections,
         CancellationToken cancellationToken)
     {
         var ids = selections
@@ -462,7 +492,7 @@ public class TenantGenerationKnowledgeSourceProvider(
     private async Task<IReadOnlyList<int>> ResolveTagIdsAsync(
         TenantKnowledgeDocumentDbContext context,
         int tenantId,
-        IReadOnlyList<GenerationDataSourceSelectionDto> selections,
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections,
         CancellationToken cancellationToken)
     {
         var ids = selections
@@ -544,13 +574,13 @@ public class TenantGenerationKnowledgeSourceProvider(
         return tenantResourceNamingStrategy.Create(tenantId).VectorStoreNamespace;
     }
 
-    private static IReadOnlyList<GenerationDataSourceSelectionDto> NormalizeSelections(
-        IReadOnlyList<GenerationDataSourceSelectionDto> dataSources)
+    private static IReadOnlyList<TenantGenerationDataSourceSelectionMessage> NormalizeSelections(
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> dataSources)
         => dataSources is { Count: > 0 }
             ? dataSources
-            : [new GenerationDataSourceSelectionDto("KnowledgeChunk", null, null, null, null, null, null, false)];
+            : [new TenantGenerationDataSourceSelectionMessage("KnowledgeChunk", null, null, null, null, null, null, false)];
 
-    private static bool ShouldIncludeBlobContent(IReadOnlyList<GenerationDataSourceSelectionDto> selections)
+    private static bool ShouldIncludeBlobContent(IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections)
         => selections.Any(x =>
             x.IncludeBlobContent ||
             string.Equals(x.SourceKind, "BlobDocument", StringComparison.OrdinalIgnoreCase) ||
@@ -558,7 +588,7 @@ public class TenantGenerationKnowledgeSourceProvider(
 
     private static int ResolveFinalLimit(
         TenantKnowledgeConfigurationDto configuration,
-        IReadOnlyList<GenerationDataSourceSelectionDto> selections)
+        IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections)
     {
         var sourceLimit = selections
             .Where(x => x.MaxChunks.HasValue && x.MaxChunks.Value > 0)
@@ -571,7 +601,7 @@ public class TenantGenerationKnowledgeSourceProvider(
         return Math.Clamp(limit, 1, configuredLimit);
     }
 
-    private static int ResolveBlobLimit(IReadOnlyList<GenerationDataSourceSelectionDto> selections)
+    private static int ResolveBlobLimit(IReadOnlyList<TenantGenerationDataSourceSelectionMessage> selections)
         => ShouldIncludeBlobContent(selections) ? 3 : 0;
 
     private static string LimitContent(string value, int maxLength)
@@ -588,7 +618,31 @@ public class TenantGenerationKnowledgeSourceProvider(
             .Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             .ToUpperInvariant();
 
+    private static TenantKnowledgeConfigurationMessage MapConfiguration(TenantKnowledgeConfigurationDto configuration)
+        => new(
+            configuration.Id,
+            configuration.TenantId,
+            configuration.SystemPrompt,
+            configuration.AssistantInstructionPrompt,
+            configuration.ChunkSize,
+            configuration.ChunkOverlap,
+            configuration.TopKRetrievalCount,
+            configuration.MaximumChunksInFinalContext,
+            configuration.MinimumSimilarityThreshold,
+            configuration.AllowedFileTypes,
+            configuration.MaximumFileSizeBytes,
+            configuration.AutoProcessOnUpload,
+            configuration.ManualApprovalRequiredBeforeIndexing,
+            configuration.VersioningEnabled,
+            configuration.IsActive,
+            configuration.CreatedAtUtc,
+            configuration.UpdatedAtUtc,
+            new TenantKnowledgeModelConstraintsMessage(
+                configuration.Models.EmbeddingProvider,
+                configuration.Models.EmbeddingModel,
+                configuration.Models.GenerationModel));
+
     private sealed record VectorChunkRetrievalResult(
-        IReadOnlyList<RetrievedGenerationSourceDto> Sources,
+        IReadOnlyList<RetrievedTenantGenerationSourceMessage> Sources,
         IReadOnlyList<TenantKnowledgeDocument> Documents);
 }
