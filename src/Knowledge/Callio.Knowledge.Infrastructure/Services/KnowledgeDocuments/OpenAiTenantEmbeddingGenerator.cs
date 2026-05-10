@@ -10,6 +10,7 @@ public class OpenAiTenantEmbeddingGenerator(
     IOptions<TenantKnowledgeIngestionOptions> options) : ITenantEmbeddingGenerator
 {
     private static readonly HttpClient HttpClient = new();
+    private const string DefaultOpenAIBaseUrl = "https://api.openai.com/v1";
     private readonly TenantKnowledgeIngestionOptions _options = options.Value;
 
     public async Task<IReadOnlyList<float[]>> GenerateEmbeddingsAsync(
@@ -27,7 +28,7 @@ public class OpenAiTenantEmbeddingGenerator(
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            $"{ResolveBaseUrl()}/embeddings");
+            ResolveEmbeddingsUri());
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         request.Content = new StringContent(
@@ -40,7 +41,8 @@ public class OpenAiTenantEmbeddingGenerator(
             "application/json");
 
         using var response = await HttpClient.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+            await ThrowRequestFailedAsync(response, cancellationToken);
 
         await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken);
@@ -60,15 +62,43 @@ public class OpenAiTenantEmbeddingGenerator(
         return embeddings;
     }
 
-    private string ResolveBaseUrl()
-        => string.IsNullOrWhiteSpace(_options.OpenAIBaseUrl)
-            ? "https://api.openai.com/v1"
-            : _options.OpenAIBaseUrl.TrimEnd('/');
+    private Uri ResolveEmbeddingsUri()
+    {
+        var configuredUrl = string.IsNullOrWhiteSpace(_options.OpenAIBaseUrl)
+            ? DefaultOpenAIBaseUrl
+            : _options.OpenAIBaseUrl.Trim();
+
+        if (!Uri.TryCreate(configuredUrl, UriKind.Absolute, out var uri))
+            throw new InvalidOperationException("OpenAI base URL must be an absolute URL.");
+
+        var normalizedPath = uri.AbsolutePath.TrimEnd('/');
+        if (normalizedPath.EndsWith("/embeddings", StringComparison.OrdinalIgnoreCase))
+            return new UriBuilder(uri) { Path = normalizedPath }.Uri;
+
+        var builder = new UriBuilder(uri)
+        {
+            Path = $"{normalizedPath}/embeddings"
+        };
+
+        return builder.Uri;
+    }
 
     private string? ResolveApiKey()
         => string.IsNullOrWhiteSpace(_options.OpenAIApiKey)
             ? Environment.GetEnvironmentVariable("OPENAI_API_KEY")
             : _options.OpenAIApiKey;
+
+    private static async Task ThrowRequestFailedAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (responseBody.Length > 1_000)
+            responseBody = string.Concat(responseBody.AsSpan(0, 1_000), "...");
+
+        throw new HttpRequestException(
+            $"OpenAI embeddings request to '{response.RequestMessage?.RequestUri}' failed with status {(int)response.StatusCode} ({response.ReasonPhrase}). Response: {responseBody}",
+            null,
+            response.StatusCode);
+    }
 
     private static float[] ParseEmbedding(JsonElement element)
     {

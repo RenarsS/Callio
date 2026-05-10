@@ -17,6 +17,12 @@ public class ApplicationUserClaimsPrincipalFactory(
 
         identity.AddClaim(new Claim(AppClaims.UserType, user.Type.ToString()));
 
+        if (!string.IsNullOrWhiteSpace(user.Email) &&
+            !identity.HasClaim(claim => claim.Type == ClaimTypes.Email))
+        {
+            identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
+        }
+
         if (!string.IsNullOrWhiteSpace(user.FirstName))
             identity.AddClaim(new Claim(ClaimTypes.GivenName, user.FirstName));
 

@@ -142,16 +142,34 @@ else
 
         try
         {
-            _requestStatus = await TenantRequestApi.GetCurrentRequestStatusAsync();
+            var requestStatusTask = TenantRequestApi.GetCurrentRequestStatusAsync();
 
             if (_session.TenantId is > 0)
             {
                 var tenantId = _session.TenantId.Value;
-                _provisioningStatus = await TenantProvisioningApi.GetStatusAsync(tenantId);
-                _documentCount = (await TenantKnowledgeDocumentsApi.GetDocumentsAsync(tenantId)).Count;
-                _promptCount = (await TenantGenerationApi.GetPromptsAsync(tenantId)).Count;
-                _responseCount = (await TenantGenerationApi.GetResponsesAsync(tenantId, 20)).Count;
+                var provisioningStatusTask = TenantProvisioningApi.GetStatusAsync(tenantId);
+                var documentsTask = TenantKnowledgeDocumentsApi.GetDocumentsAsync(tenantId);
+                var promptsTask = TenantGenerationApi.GetPromptsAsync(tenantId);
+                var responsesTask = TenantGenerationApi.GetResponsesAsync(tenantId, 20);
+
+                await Task.WhenAll(
+                    requestStatusTask,
+                    provisioningStatusTask,
+                    documentsTask,
+                    promptsTask,
+                    responsesTask);
+
+                _provisioningStatus = await provisioningStatusTask;
+                _documentCount = (await documentsTask).Count;
+                _promptCount = (await promptsTask).Count;
+                _responseCount = (await responsesTask).Count;
             }
+            else
+            {
+                await requestStatusTask;
+            }
+
+            _requestStatus = await requestStatusTask;
         }
         catch (Exception ex)
         {

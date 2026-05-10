@@ -3,6 +3,7 @@ using Callio.Provisioning.Infrastructure.Options;
 using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Services;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,16 +30,31 @@ public static class ProvisioningModuleExtensions
 
         services.AddDbContext<ProvisioningDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb"),
+                BuildProvisioningConnectionString(configuration),
                 sqlOptions => sqlOptions
                     .MigrationsHistoryTable(
                         SqlServerTransientRetry.MigrationsHistoryTable,
                         SqlServerTransientRetry.MigrationsHistorySchema)
+                    .CommandTimeout(60)
                     .EnableRetryOnFailure(
                         SqlServerTransientRetry.MaxRetryCount,
                         SqlServerTransientRetry.MaxRetryDelay,
                         SqlServerTransientRetry.AdditionalErrorNumbers)));
 
         return services;
+    }
+
+    private static string BuildProvisioningConnectionString(IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("CallioDb")
+            ?? throw new InvalidOperationException("Connection string 'CallioDb' is required for provisioning storage.");
+
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        builder.ConnectTimeout = Math.Max(60, builder.ConnectTimeout);
+        builder.ConnectRetryCount = 3;
+        builder.ConnectRetryInterval = 10;
+        builder.MultipleActiveResultSets = true;
+
+        return builder.ConnectionString;
     }
 }

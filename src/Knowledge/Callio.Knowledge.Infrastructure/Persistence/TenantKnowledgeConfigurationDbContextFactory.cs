@@ -17,6 +17,7 @@ public class TenantKnowledgeConfigurationDbContextFactory(
                     .MigrationsHistoryTable(
                         SqlServerTransientRetry.MigrationsHistoryTable,
                         SqlServerTransientRetry.MigrationsHistorySchema)
+                    .CommandTimeout(60)
                     .EnableRetryOnFailure(
                         SqlServerTransientRetry.MaxRetryCount,
                         SqlServerTransientRetry.MaxRetryDelay,

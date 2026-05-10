@@ -16,6 +16,12 @@ public class PortalSessionService(
     NavigationManager navigationManager)
 {
     private const string AccessTokenStorageKey = "callio.portal.accessToken";
+    private const string UserTypeClaim = "callio:user_type";
+    private const string TenantIdClaim = "callio:tenant_id";
+    private const string DisplayNameClaim = "callio:display_name";
+    private const string EmailClaim = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress";
+    private const string NameClaim = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name";
+    private const string NameIdentifierClaim = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier";
     private bool _initialized;
 
     public PortalUserSession? CurrentSession { get; private set; }
@@ -33,6 +39,13 @@ public class PortalSessionService(
             return null;
 
         SetAuthorizationHeader(token);
+        var tokenSession = TryCreateSessionFromAccessToken(token);
+        if (tokenSession is not null)
+        {
+            CurrentSession = tokenSession;
+            return CurrentSession;
+        }
+
         var currentUser = await TryGetCurrentUserAsync(cancellationToken);
         if (currentUser is null)
         {
@@ -69,6 +82,10 @@ public class PortalSessionService(
         await jsRuntime.InvokeVoidAsync("localStorage.setItem", cancellationToken, AccessTokenStorageKey, token);
         SetAuthorizationHeader(token);
         _initialized = true;
+
+        CurrentSession = TryCreateSessionFromAccessToken(token);
+        if (CurrentSession is not null)
+            return CurrentSession;
 
         var currentUser = await TryGetCurrentUserAsync(cancellationToken)
                           ?? throw new InvalidOperationException("The portal user profile could not be loaded after login.");
@@ -145,6 +162,59 @@ public class PortalSessionService(
             currentUser.TenantId,
             ReadExpiryUtc(accessToken));
 
+    private static PortalUserSession? TryCreateSessionFromAccessToken(string accessToken)
+    {
+        var parts = accessToken.Split('.');
+        if (parts.Length < 2)
+            return null;
+
+        try
+        {
+            var payloadBytes = Base64UrlDecode(parts[1]);
+            using var document = JsonDocument.Parse(payloadBytes);
+            var root = document.RootElement;
+
+            var expiresAtUtc = ReadExpiryUtc(root);
+            if (expiresAtUtc.HasValue && expiresAtUtc.Value <= DateTime.UtcNow)
+                return null;
+
+            var userId = ReadClaim(root, NameIdentifierClaim)
+                         ?? ReadClaim(root, "nameid")
+                         ?? ReadClaim(root, "sub");
+            var email = ReadClaim(root, EmailClaim)
+                        ?? ReadClaim(root, "email")
+                        ?? ReadClaim(root, NameClaim)
+                        ?? ReadClaim(root, "name");
+            var displayName = ReadClaim(root, DisplayNameClaim)
+                              ?? ReadClaim(root, NameClaim)
+                              ?? ReadClaim(root, "name")
+                              ?? email;
+            var userType = ReadClaim(root, UserTypeClaim);
+            var tenantId = ReadTenantId(root);
+
+            if (string.IsNullOrWhiteSpace(userId) ||
+                string.IsNullOrWhiteSpace(email) ||
+                string.IsNullOrWhiteSpace(displayName) ||
+                string.IsNullOrWhiteSpace(userType))
+            {
+                return null;
+            }
+
+            return new PortalUserSession(
+                accessToken,
+                userId,
+                email,
+                displayName,
+                userType,
+                tenantId,
+                expiresAtUtc);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static DateTime? ReadExpiryUtc(string accessToken)
     {
         var parts = accessToken.Split('.');
@@ -155,18 +225,45 @@ public class PortalSessionService(
         {
             var payloadBytes = Base64UrlDecode(parts[1]);
             using var document = JsonDocument.Parse(payloadBytes);
-            if (!document.RootElement.TryGetProperty("exp", out var expirationElement))
-                return null;
-
-            if (!expirationElement.TryGetInt64(out var expiration))
-                return null;
-
-            return DateTimeOffset.FromUnixTimeSeconds(expiration).UtcDateTime;
+            return ReadExpiryUtc(document.RootElement);
         }
         catch
         {
             return null;
         }
+    }
+
+    private static DateTime? ReadExpiryUtc(JsonElement root)
+    {
+        if (!root.TryGetProperty("exp", out var expirationElement))
+            return null;
+
+        if (!expirationElement.TryGetInt64(out var expiration))
+            return null;
+
+        return DateTimeOffset.FromUnixTimeSeconds(expiration).UtcDateTime;
+    }
+
+    private static int? ReadTenantId(JsonElement root)
+    {
+        var value = ReadClaim(root, TenantIdClaim);
+        return int.TryParse(value, out var tenantId) ? tenantId : null;
+    }
+
+    private static string? ReadClaim(JsonElement root, string claimType)
+    {
+        if (!root.TryGetProperty(claimType, out var claimElement))
+            return null;
+
+        return claimElement.ValueKind switch
+        {
+            JsonValueKind.String => claimElement.GetString(),
+            JsonValueKind.Number => claimElement.GetRawText(),
+            JsonValueKind.Array => claimElement.EnumerateArray()
+                .Select(item => item.ValueKind == JsonValueKind.String ? item.GetString() : item.GetRawText())
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)),
+            _ => null
+        };
     }
 
     private static byte[] Base64UrlDecode(string input)

@@ -5,6 +5,7 @@ using Callio.Identity.Infrastructure.Identity;
 using Callio.Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,10 +18,14 @@ public static class IdentityModuleExtensions
     {
         services.AddDbContext<AppIdentityDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb"),
+                BuildIdentityConnectionString(configuration),
                 sqlOptions => sqlOptions
                     .MigrationsHistoryTable("__EFMigrationsHistory", "dbo")
-                    .EnableRetryOnFailure()));
+                    .CommandTimeout(60)
+                    .EnableRetryOnFailure(
+                        maxRetryCount: 10,
+                        maxRetryDelay: TimeSpan.FromSeconds(30),
+                        errorNumbersToAdd: [40613])));
 
         services.AddIdentityApiEndpoints<ApplicationUser>()
             .AddEntityFrameworkStores<AppIdentityDbContext>();
@@ -40,5 +45,19 @@ public static class IdentityModuleExtensions
     public static void MapIdentityModule(this IEndpointRouteBuilder app)
     {
         app.MapIdentityApi<ApplicationUser>();
+    }
+
+    private static string BuildIdentityConnectionString(IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("CallioDb")
+            ?? throw new InvalidOperationException("Connection string 'CallioDb' is required for identity storage.");
+
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        builder.ConnectTimeout = Math.Max(60, builder.ConnectTimeout);
+        builder.ConnectRetryCount = 3;
+        builder.ConnectRetryInterval = 10;
+        builder.MultipleActiveResultSets = true;
+
+        return builder.ConnectionString;
     }
 }

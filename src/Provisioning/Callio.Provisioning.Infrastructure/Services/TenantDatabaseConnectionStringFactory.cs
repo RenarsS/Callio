@@ -9,5 +9,13 @@ public class TenantDatabaseConnectionStringFactory(IConfiguration configuration)
         ?? throw new InvalidOperationException("A CallioTenantsDb connection string is required for tenant schema storage.");
 
     public string CreateTenantConnectionString()
-        => new SqlConnectionStringBuilder(_baseConnectionString).ConnectionString;
+    {
+        var builder = new SqlConnectionStringBuilder(_baseConnectionString);
+        builder.ConnectTimeout = Math.Max(60, builder.ConnectTimeout);
+        builder.ConnectRetryCount = 3;
+        builder.ConnectRetryInterval = 10;
+        builder.MultipleActiveResultSets = true;
+
+        return builder.ConnectionString;
+    }
 }

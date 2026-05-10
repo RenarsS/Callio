@@ -7,6 +7,7 @@ using Callio.Knowledge.Infrastructure.Repositories;
 using Callio.Knowledge.Infrastructure.Services;
 using Callio.Knowledge.Infrastructure.Services.KnowledgeDocuments;
 using Callio.Provisioning.Infrastructure.Services;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,11 +27,12 @@ public static class KnowledgeModuleExtensions
 
         services.AddDbContext<KnowledgeDbContext>(options =>
             options.UseSqlServer(
-                configuration.GetConnectionString("CallioDb"),
+                BuildKnowledgeConnectionString(configuration),
                 sqlOptions => sqlOptions
                     .MigrationsHistoryTable(
                         SqlServerTransientRetry.MigrationsHistoryTable,
                         SqlServerTransientRetry.MigrationsHistorySchema)
+                    .CommandTimeout(60)
                     .EnableRetryOnFailure(
                         SqlServerTransientRetry.MaxRetryCount,
                         SqlServerTransientRetry.MaxRetryDelay,
@@ -60,5 +62,19 @@ public static class KnowledgeModuleExtensions
         services.AddScoped<ITenantKnowledgeTextExtractor, TenantKnowledgeTextExtractor>();
 
         return services;
+    }
+
+    private static string BuildKnowledgeConnectionString(IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("CallioDb")
+            ?? throw new InvalidOperationException("Connection string 'CallioDb' is required for knowledge storage.");
+
+        var builder = new SqlConnectionStringBuilder(connectionString);
+        builder.ConnectTimeout = Math.Max(60, builder.ConnectTimeout);
+        builder.ConnectRetryCount = 3;
+        builder.ConnectRetryInterval = 10;
+        builder.MultipleActiveResultSets = true;
+
+        return builder.ConnectionString;
     }
 }
