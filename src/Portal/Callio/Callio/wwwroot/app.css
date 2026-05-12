@@ -218,6 +218,37 @@ a, .btn-link {
     justify-content: center;
 }
 
+.callio-filter-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: rgba(206, 218, 235, 0.72);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.callio-filter-select {
+    display: block;
+    width: 100%;
+    min-height: 56px;
+    padding: 0 2.6rem 0 0.95rem;
+    border: 1px solid rgba(154, 171, 194, 0.28);
+    border-radius: 4px;
+    color: var(--callio-text);
+    background-color: rgba(8, 17, 31, 0.78);
+    font: inherit;
+    outline: none;
+}
+
+.callio-filter-select:focus {
+    border-color: var(--callio-primary);
+    box-shadow: 0 0 0 1px rgba(28, 199, 184, 0.5);
+}
+
+.callio-filter-select option {
+    color: #08111f;
+    background: #f5f8ff;
+}
+
 .blazor-error-boundary {
     background: #8f2d1f;
     padding: 1rem 1.2rem;

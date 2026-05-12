@@ -106,7 +106,7 @@ public class TenantKnowledgeVectorStore(
                     row.Id,
                     documentKey,
                     row.ChunkIndex,
-                    (decimal)Math.Round(row.Score, 6)));
+                    ToCosineSimilarity(row.Distance)));
 
                 if (results.Count >= query.Top)
                     break;
@@ -124,7 +124,7 @@ public class TenantKnowledgeVectorStore(
     {
         var sql = new StringBuilder();
         sql.Append("SELECT TOP @top c.id, c.documentKey, c.chunkIndex, ");
-        sql.Append("VectorDistance(c.contentVector, @embedding) AS score ");
+        sql.Append("VectorDistance(c.contentVector, @embedding) AS distance ");
         sql.Append("FROM c");
 
         var filters = new List<string>();
@@ -317,7 +317,10 @@ public class TenantKnowledgeVectorStore(
         [JsonPropertyName("chunkIndex")]
         public int ChunkIndex { get; init; }
 
-        [JsonPropertyName("score")]
-        public double Score { get; init; }
+        [JsonPropertyName("distance")]
+        public double Distance { get; init; }
     }
+
+    private static decimal ToCosineSimilarity(double distance)
+        => (decimal)Math.Round(Math.Clamp(1d - distance, 0d, 1d), 6);
 }

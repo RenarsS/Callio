@@ -258,13 +258,24 @@ public class RetrieveTenantGenerationSourcesConsumer(
             return [];
 
         var queryEmbedding = await GenerateQueryEmbeddingAsync(input, configuration.Models.EmbeddingModel, cancellationToken);
-        return chunks
-            .Select(item => CreateScoredChunk(item.Document, item.Chunk, queryEmbedding))
-            .Where(item => item.Score is null || item.Score >= configuration.MinimumSimilarityThreshold)
+        var queryTerms = ExtractQueryTerms(input);
+        var scoredChunks = chunks
+            .Select(item => CreateScoredChunk(item.Document, item.Chunk, queryEmbedding, queryTerms))
             .OrderByDescending(item => item.Score ?? 0)
             .ThenBy(item => item.Document.Id)
             .ThenBy(item => item.Chunk.ChunkIndex)
-            .Take(ResolveFinalLimit(configuration, selections))
+            .ToList();
+
+        var limit = ResolveFinalLimit(configuration, selections);
+        var selectedChunks = scoredChunks
+            .Where(item => item.Score is null || item.Score >= configuration.MinimumSimilarityThreshold)
+            .Take(limit)
+            .ToList();
+
+        if (selectedChunks.Count == 0)
+            selectedChunks = scoredChunks.Take(limit).ToList();
+
+        return selectedChunks
             .Select(item => new RetrievedTenantGenerationSourceMessage(
                 "KnowledgeChunk",
                 item.Document.Id,
@@ -391,20 +402,66 @@ public class RetrieveTenantGenerationSourcesConsumer(
             .ToListAsync(cancellationToken);
     }
 
-    private static (TenantKnowledgeDocument Document, TenantKnowledgeDocumentChunk Chunk, decimal? Score) CreateScoredChunk(
+    private static ScoredTenantKnowledgeChunk CreateScoredChunk(
         TenantKnowledgeDocument document,
+        TenantKnowledgeDocumentChunk chunk,
+        float[]? queryEmbedding,
+        IReadOnlyList<string> queryTerms)
+    {
+        var vectorScore = CalculateVectorScore(chunk, queryEmbedding);
+        var keywordScore = CalculateKeywordScore(document, chunk, queryTerms);
+
+        return new ScoredTenantKnowledgeChunk(
+            document,
+            chunk,
+            CombineScores(vectorScore, keywordScore));
+    }
+
+    private static decimal? CalculateVectorScore(
         TenantKnowledgeDocumentChunk chunk,
         float[]? queryEmbedding)
     {
         if (queryEmbedding is null)
-            return (document, chunk, null);
+            return null;
 
         var chunkEmbedding = ParseEmbedding(chunk.EmbeddingJson);
         if (chunkEmbedding is null || chunkEmbedding.Length != queryEmbedding.Length)
-            return (document, chunk, null);
+            return null;
 
         var score = CosineSimilarity(queryEmbedding, chunkEmbedding);
-        return (document, chunk, (decimal)Math.Round(score, 6));
+        return (decimal)Math.Round(score, 6);
+    }
+
+    private static decimal? CalculateKeywordScore(
+        TenantKnowledgeDocument document,
+        TenantKnowledgeDocumentChunk chunk,
+        IReadOnlyList<string> queryTerms)
+    {
+        if (queryTerms.Count == 0)
+            return null;
+
+        var haystack = $"{document.Title} {document.Category?.Name} {chunk.Content}".ToLowerInvariant();
+        var matchedTerms = queryTerms.Count(term => haystack.Contains(term, StringComparison.Ordinal));
+        if (matchedTerms == 0)
+            return null;
+
+        var coverage = (decimal)matchedTerms / queryTerms.Count;
+        var titleBonus = queryTerms.Any(term => document.Title.Contains(term, StringComparison.OrdinalIgnoreCase))
+            ? 0.10m
+            : 0m;
+        var phraseBonus = chunk.Content.Contains(string.Join(' ', queryTerms), StringComparison.OrdinalIgnoreCase)
+            ? 0.15m
+            : 0m;
+
+        return Math.Round(Math.Min(1m, coverage + titleBonus + phraseBonus), 6);
+    }
+
+    private static decimal? CombineScores(decimal? vectorScore, decimal? keywordScore)
+    {
+        if (vectorScore.HasValue && keywordScore.HasValue)
+            return Math.Round((vectorScore.Value * 0.75m) + (keywordScore.Value * 0.25m), 6);
+
+        return vectorScore ?? keywordScore;
     }
 
     private async Task<float[]?> GenerateQueryEmbeddingAsync(
@@ -613,6 +670,17 @@ public class RetrieveTenantGenerationSourcesConsumer(
         return normalized[..Math.Max(1, maxLength)].TrimEnd() + "...";
     }
 
+    private static IReadOnlyList<string> ExtractQueryTerms(string input)
+        => (input ?? string.Empty)
+            .ToLowerInvariant()
+            .Split(
+                [' ', '\r', '\n', '\t', '.', ',', ';', ':', '!', '?', '"', '\'', '(', ')', '[', ']', '{', '}', '/', '\\', '-', '_'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(term => term.Length >= 3)
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToList();
+
     private static string NormalizeLookup(string value)
         => string.Join(' ', (value ?? string.Empty)
             .Split([' ', '\r', '\n', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
@@ -645,4 +713,9 @@ public class RetrieveTenantGenerationSourcesConsumer(
     private sealed record VectorChunkRetrievalResult(
         IReadOnlyList<RetrievedTenantGenerationSourceMessage> Sources,
         IReadOnlyList<TenantKnowledgeDocument> Documents);
+
+    private sealed record ScoredTenantKnowledgeChunk(
+        TenantKnowledgeDocument Document,
+        TenantKnowledgeDocumentChunk Chunk,
+        decimal? Score);
 }

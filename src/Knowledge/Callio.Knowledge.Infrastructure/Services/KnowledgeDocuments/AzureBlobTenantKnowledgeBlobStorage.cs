@@ -82,7 +82,7 @@ public class AzureBlobTenantKnowledgeBlobStorage(
     }
 
     private string ResolveConnectionString()
-        => string.IsNullOrWhiteSpace(_provisioningOptions.AzureBlobConnectionString)
-            ? _ingestionOptions.AzureBlobConnectionString
-            : _provisioningOptions.AzureBlobConnectionString;
+        => string.IsNullOrWhiteSpace(_ingestionOptions.AzureBlobConnectionString)
+            ? _provisioningOptions.AzureBlobConnectionString
+            : _ingestionOptions.AzureBlobConnectionString;
 }

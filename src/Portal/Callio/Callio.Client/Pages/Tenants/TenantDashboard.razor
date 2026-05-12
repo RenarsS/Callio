@@ -28,6 +28,13 @@ else
         <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@_error</MudAlert>
     }
 
+    @if (_dashboardWarnings.Count > 0)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+            @string.Join(" ", _dashboardWarnings)
+        </MudAlert>
+    }
+
     <MudPaper Class="callio-card callio-card-strong callio-hero" Elevation="0">
         <MudGrid>
             <MudItem xs="12" md="8">
@@ -126,6 +133,7 @@ else
     private PortalTenantProvisioningStatusResponse? _provisioningStatus;
     private bool _loading = true;
     private string? _error;
+    private readonly List<string> _dashboardWarnings = [];
     private int _documentCount;
     private int _promptCount;
     private int _responseCount;
@@ -140,44 +148,59 @@ else
             return;
         }
 
+        _requestStatus = await TryLoadDashboardValueAsync(
+            cancellationToken => TenantRequestApi.GetCurrentRequestStatusAsync(cancellationToken),
+            "Request status");
+
+        if (_session.TenantId is > 0)
+        {
+            var tenantId = _session.TenantId.Value;
+
+            _provisioningStatus = await TryLoadDashboardValueAsync(
+                cancellationToken => TenantProvisioningApi.GetStatusAsync(tenantId, cancellationToken),
+                "Provisioning status");
+
+            var documents = await TryLoadDashboardValueAsync(
+                cancellationToken => TenantKnowledgeDocumentsApi.GetDocumentsAsync(tenantId, cancellationToken),
+                "Knowledge document count");
+            _documentCount = documents?.Count ?? 0;
+
+            var prompts = await TryLoadDashboardValueAsync(
+                cancellationToken => TenantGenerationApi.GetPromptsAsync(tenantId, cancellationToken),
+                "Prompt count");
+            _promptCount = prompts?.Count ?? 0;
+
+            var responses = await TryLoadDashboardValueAsync(
+                cancellationToken => TenantGenerationApi.GetResponsesAsync(tenantId, 20, cancellationToken),
+                "Response count");
+            _responseCount = responses?.Count ?? 0;
+        }
+
+        if (_dashboardWarnings.Count > 0)
+            _error = "Some dashboard summary data could not be loaded. The workspace is still available.";
+
+        _loading = false;
+    }
+
+    private async Task<T?> TryLoadDashboardValueAsync<T>(
+        Func<CancellationToken, Task<T>> loadAsync,
+        string label)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(8));
+
         try
         {
-            var requestStatusTask = TenantRequestApi.GetCurrentRequestStatusAsync();
-
-            if (_session.TenantId is > 0)
-            {
-                var tenantId = _session.TenantId.Value;
-                var provisioningStatusTask = TenantProvisioningApi.GetStatusAsync(tenantId);
-                var documentsTask = TenantKnowledgeDocumentsApi.GetDocumentsAsync(tenantId);
-                var promptsTask = TenantGenerationApi.GetPromptsAsync(tenantId);
-                var responsesTask = TenantGenerationApi.GetResponsesAsync(tenantId, 20);
-
-                await Task.WhenAll(
-                    requestStatusTask,
-                    provisioningStatusTask,
-                    documentsTask,
-                    promptsTask,
-                    responsesTask);
-
-                _provisioningStatus = await provisioningStatusTask;
-                _documentCount = (await documentsTask).Count;
-                _promptCount = (await promptsTask).Count;
-                _responseCount = (await responsesTask).Count;
-            }
-            else
-            {
-                await requestStatusTask;
-            }
-
-            _requestStatus = await requestStatusTask;
+            return await loadAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _dashboardWarnings.Add($"{label} timed out.");
+            return default;
         }
         catch (Exception ex)
         {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _loading = false;
+            _dashboardWarnings.Add($"{label} failed: {ex.Message}");
+            return default;
         }
     }
 }

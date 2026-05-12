@@ -81,7 +81,7 @@
         try
         {
             await PortalSessionService.LoginAsync(_email.Trim(), _password, CancellationToken.None);
-            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/tenant-dashboard" : ReturnUrl!, replace: true);
+            Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/tenant-dashboard" : ReturnUrl!, forceLoad: true, replace: true);
         }
         catch (Exception ex)
         {

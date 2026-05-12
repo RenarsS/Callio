@@ -1,0 +1,314 @@
+@page "/tenant-response-generation"
+@page "/tenant-generation-create-response"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using Callio.Client.Models
+@inject Callio.Client.Services.PortalSessionService PortalSessionService
+@inject Callio.Client.Services.TenantGenerationApi TenantGenerationApi
+@inject NavigationManager Navigation
+
+<PageTitle>Response generation</PageTitle>
+
+@if (_loadingSession)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (_session is null)
+{
+    <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined">
+        Redirecting to sign in...
+    </MudAlert>
+}
+else if (_tenantId is null)
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudPaper Class="callio-card pa-5" Elevation="0">
+        <MudText Typo="Typo.h5" GutterBottom="true">Response generation unlocks after tenant approval</MudText>
+        <MudText Typo="Typo.body2" Class="callio-lead">
+            This account has not been linked to an approved tenant yet. Check provisioning to follow approval and infrastructure progress.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-provisioning" Class="mt-4">
+            Open provisioning
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <TenantWorkspaceNav Session="_session" />
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" lg="4">
+            <MudStack Spacing="3">
+                <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
+                    <div class="callio-kicker">Response generation</div>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Generate tenant responses from saved prompt templates.</MudText>
+                    <MudText Typo="Typo.body2" Class="callio-lead">
+                        Choose a prompt template, enter the user input, and save the generated response into response storage.
+                    </MudText>
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-response-storage">
+                            Open response storage
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-generation-prompts">
+                            Prompt storage
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <MudText Typo="Typo.h6" GutterBottom="true">Available templates</MudText>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                        @_prompts.Count prompt(s)
+                    </MudChip>
+
+                    @if (SelectedPrompt is not null)
+                    {
+                        <div class="callio-detail-list mt-3">
+                            <div class="callio-detail-item">
+                                <span>Selected</span>
+                                <strong>@SelectedPrompt.Name</strong>
+                            </div>
+                            <div class="callio-detail-item">
+                                <span>Prompt key</span>
+                                <strong>@SelectedPrompt.Key</strong>
+                            </div>
+                        </div>
+                    }
+                </MudPaper>
+
+                @if (_recentResponses.Count > 0)
+                {
+                    <div class="callio-stat-row">
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Recent</div>
+                            <div class="callio-stat-value">@_recentResponses.Count</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Completed</div>
+                            <div class="callio-stat-value">@_recentResponses.Count(x => x.Status == "Completed")</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Failed</div>
+                            <div class="callio-stat-value">@_recentResponses.Count(x => x.Status == "Failed")</div>
+                        </div>
+                    </div>
+                }
+            </MudStack>
+        </MudItem>
+
+        <MudItem xs="12" lg="8">
+            <MudStack Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_feedbackMessage))
+                {
+                    <MudAlert Severity="@_feedbackSeverity" Variant="Variant.Outlined">@_feedbackMessage</MudAlert>
+                }
+
+                <MudPaper Class="callio-card pa-5" Elevation="0">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                        <div>
+                            <MudText Typo="Typo.h5">New generation</MudText>
+                            <MudText Typo="Typo.body2" Class="callio-lead">
+                                Select a saved prompt template and enter the user input to compose, run, and save the response.
+                            </MudText>
+                        </div>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-generation-prompts">
+                            Open prompt storage
+                        </MudButton>
+                    </MudStack>
+
+                    @if (_prompts.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                            Create a prompt template before running generation.
+                        </MudAlert>
+                    }
+                    else
+                    {
+                        <MudGrid>
+                            <MudItem xs="12" md="6">
+                                <label class="callio-filter-label" for="response-generation-prompt">Prompt template</label>
+                                <select id="response-generation-prompt" class="callio-filter-select" @bind="_generationModel.PromptKey">
+                                    @foreach (var prompt in _prompts)
+                                    {
+                                        <option value="@prompt.Key">@prompt.Name</option>
+                                    }
+                                </select>
+                            </MudItem>
+                            <MudItem xs="12" md="6">
+                                <MudTextField Value="@(SelectedPrompt?.Key ?? string.Empty)" Label="Template key" Variant="Variant.Outlined" ReadOnly="true" />
+                            </MudItem>
+                            <MudItem xs="12">
+                                <MudTextField @bind-Value="_generationModel.Input" Label="Generation input" Variant="Variant.Outlined" Lines="5" Required="true" />
+                            </MudItem>
+                        </MudGrid>
+
+                        @if (SelectedPrompt is not null && !string.IsNullOrWhiteSpace(SelectedPrompt.Description))
+                        {
+                            <MudText Typo="Typo.body2" Class="callio-lead mt-3">@SelectedPrompt.Description</MudText>
+                        }
+
+                        <MudStack Row="true" Spacing="2" Class="mt-5">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanGenerate)" OnClick="GenerateAsync">
+                                @(_generating ? "Generating..." : "Generate response")
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_generating" OnClick="LoadAsync">
+                                Refresh
+                            </MudButton>
+                        </MudStack>
+                    }
+                </MudPaper>
+
+                @if (_generatedResponse is not null)
+                {
+                    <MudPaper Class="callio-card pa-5" Elevation="0">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+                            <div>
+                                <MudText Typo="Typo.h5">Latest generated response</MudText>
+                                <MudText Typo="Typo.body2" Class="callio-lead">
+                                    Saved into response storage when generation completed.
+                                </MudText>
+                            </div>
+                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(_generatedResponse.Status)" Variant="Variant.Filled">
+                                @_generatedResponse.Status
+                            </MudChip>
+                        </MudStack>
+
+                        <MudText Typo="Typo.subtitle2">Response</MudText>
+                        <MudText Typo="Typo.body2" Class="callio-lead">@_generatedResponse.ResponseText</MudText>
+
+                        <div class="callio-plan-card-quotas">
+                            <div class="callio-plan-card-quota">@_generatedResponse.PromptKey</div>
+                            <div class="callio-plan-card-quota">@_generatedResponse.GenerationModel</div>
+                            <div class="callio-plan-card-quota">@($"{_generatedResponse.Sources.Count} source(s)")</div>
+                        </div>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private PortalUserSession? _session;
+    private int? _tenantId;
+    private bool _loadingSession = true;
+    private bool _generating;
+    private string? _feedbackMessage;
+    private Severity _feedbackSeverity = Severity.Info;
+    private readonly GenerationRequestVm _generationModel = new();
+    private IReadOnlyList<PortalGenerationPromptResponse> _prompts = [];
+    private IReadOnlyList<PortalGenerationResponse> _recentResponses = [];
+    private PortalGenerationResponse? _generatedResponse;
+
+    private PortalGenerationPromptResponse? SelectedPrompt
+        => _prompts.FirstOrDefault(x => string.Equals(x.Key, _generationModel.PromptKey, StringComparison.OrdinalIgnoreCase));
+
+    private bool CanGenerate =>
+        !_generating &&
+        _tenantId is > 0 &&
+        !string.IsNullOrWhiteSpace(_generationModel.PromptKey) &&
+        !string.IsNullOrWhiteSpace(_generationModel.Input);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var returnUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+        _session = await PortalSessionService.RequireAuthenticatedAsync(returnUrl);
+        _tenantId = _session?.TenantId;
+        _loadingSession = false;
+
+        if (_tenantId is > 0)
+            await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (_tenantId is not > 0)
+            return;
+
+        try
+        {
+            _prompts = await TenantGenerationApi.GetPromptsAsync(_tenantId.Value);
+            EnsureSelectedPrompt();
+            _recentResponses = await TenantGenerationApi.GetResponsesAsync(_tenantId.Value, 10);
+            _feedbackMessage = null;
+        }
+        catch (Exception ex)
+        {
+            _prompts = [];
+            _recentResponses = [];
+            SetFeedback(Severity.Error, ex.Message);
+        }
+    }
+
+    private async Task GenerateAsync()
+    {
+        if (!CanGenerate || _tenantId is not > 0)
+            return;
+
+        _generating = true;
+        _feedbackMessage = null;
+
+        try
+        {
+            _generatedResponse = await TenantGenerationApi.GenerateResponseAsync(
+                _tenantId.Value,
+                new GeneratePortalTenantResponseRequest(
+                    _generationModel.Input.Trim(),
+                    _generationModel.PromptKey,
+                    null,
+                    null,
+                    true,
+                    null,
+                    null));
+
+            _generationModel.Input = string.Empty;
+            await LoadAsync();
+
+            var message = _generatedResponse.Status == "Completed"
+                ? "Generated and saved the tenant response."
+                : $"Generation finished with status {_generatedResponse.Status}.";
+            SetFeedback(_generatedResponse.Status == "Completed" ? Severity.Success : Severity.Warning, message);
+        }
+        catch (Exception ex)
+        {
+            SetFeedback(Severity.Error, ex.Message);
+        }
+        finally
+        {
+            _generating = false;
+        }
+    }
+
+    private void EnsureSelectedPrompt()
+    {
+        if (_prompts.Count == 0)
+        {
+            _generationModel.PromptKey = string.Empty;
+            return;
+        }
+
+        if (_prompts.Any(x => string.Equals(x.Key, _generationModel.PromptKey, StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        _generationModel.PromptKey = _prompts[0].Key;
+    }
+
+    private void SetFeedback(Severity severity, string message)
+    {
+        _feedbackSeverity = severity;
+        _feedbackMessage = message;
+    }
+
+    private static Color GetStatusColor(string status) => status switch
+    {
+        "Completed" => Color.Success,
+        "Failed" => Color.Error,
+        _ => Color.Info
+    };
+
+    private sealed class GenerationRequestVm
+    {
+        public string PromptKey { get; set; } = string.Empty;
+        public string Input { get; set; } = string.Empty;
+    }
+}

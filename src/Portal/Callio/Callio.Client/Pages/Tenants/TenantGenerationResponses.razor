@@ -1,4 +1,5 @@
 @page "/tenant-generation-responses"
+@page "/tenant-response-storage"
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @using Callio.Client.Models
 @inject Callio.Client.Services.PortalSessionService PortalSessionService
@@ -40,31 +41,43 @@ else
             <MudStack Spacing="3">
                 <MudPaper Class="callio-card callio-card-strong pa-5" Elevation="0">
                     <div class="callio-kicker">Response storage</div>
-                    <MudText Typo="Typo.h4" GutterBottom="true">Generate and review tenant responses.</MudText>
+                    <MudText Typo="Typo.h4" GutterBottom="true">Browse saved tenant generations without opening the generation form.</MudText>
                     <MudText Typo="Typo.body2" Class="callio-lead">
-                        Choose one of the tenant prompt templates, run generation against approved knowledge, and keep the saved response history in one workspace.
+                        Filter saved responses by prompt or status, then sort the history for review and audit work.
                     </MudText>
+                    <MudStack Row="true" Spacing="2" Class="mt-4">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/tenant-response-generation">
+                            Generate response
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/tenant-generation-prompts">
+                            Prompt storage
+                        </MudButton>
+                    </MudStack>
                 </MudPaper>
+
+                @if (_responses.Count > 0)
+                {
+                    <div class="callio-stat-row">
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Visible</div>
+                            <div class="callio-stat-value">@_filteredResponses.Count</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Completed</div>
+                            <div class="callio-stat-value">@_filteredResponses.Count(x => x.Status == "Completed")</div>
+                        </div>
+                        <div class="callio-stat">
+                            <div class="callio-stat-label">Sources</div>
+                            <div class="callio-stat-value">@_filteredResponses.Sum(x => x.Sources.Count)</div>
+                        </div>
+                    </div>
+                }
 
                 <MudPaper Class="callio-card pa-5" Elevation="0">
                     <MudText Typo="Typo.h6" GutterBottom="true">Available templates</MudText>
                     <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
                         @_prompts.Count prompt(s)
                     </MudChip>
-
-                    @if (SelectedPrompt is not null)
-                    {
-                        <div class="callio-detail-list mt-3">
-                            <div class="callio-detail-item">
-                                <span>Selected</span>
-                                <strong>@SelectedPrompt.Name</strong>
-                            </div>
-                            <div class="callio-detail-item">
-                                <span>Prompt key</span>
-                                <strong>@SelectedPrompt.Key</strong>
-                            </div>
-                        </div>
-                    }
                 </MudPaper>
             </MudStack>
         </MudItem>
@@ -79,69 +92,65 @@ else
                 <MudPaper Class="callio-card pa-5" Elevation="0">
                     <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
                         <div>
-                            <MudText Typo="Typo.h5">New generation</MudText>
-                            <MudText Typo="Typo.body2" Class="callio-lead">
-                                Select a saved prompt template and enter the user input to compose, run, and save the response.
-                            </MudText>
-                        </div>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tenant-generation-prompts">
-                            Open prompt storage
-                        </MudButton>
-                    </MudStack>
-
-                    @if (_prompts.Count == 0)
-                    {
-                        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                            Create a prompt template before running generation.
-                        </MudAlert>
-                    }
-                    else
-                    {
-                        <MudGrid>
-                            <MudItem xs="12" md="6">
-                                <MudSelect T="string" @bind-Value="_generationModel.PromptKey" Label="Prompt template" Variant="Variant.Outlined" Required="true">
-                                    @foreach (var prompt in _prompts)
-                                    {
-                                        <MudSelectItem Value="@prompt.Key">@prompt.Name</MudSelectItem>
-                                    }
-                                </MudSelect>
-                            </MudItem>
-                            <MudItem xs="12" md="6">
-                                <MudTextField Value="@(SelectedPrompt?.Key ?? string.Empty)" Label="Template key" Variant="Variant.Outlined" ReadOnly="true" />
-                            </MudItem>
-                            <MudItem xs="12">
-                                <MudTextField @bind-Value="_generationModel.Input" Label="Generation input" Variant="Variant.Outlined" Lines="5" Required="true" />
-                            </MudItem>
-                        </MudGrid>
-
-                        @if (SelectedPrompt is not null && !string.IsNullOrWhiteSpace(SelectedPrompt.Description))
-                        {
-                            <MudText Typo="Typo.body2" Class="callio-lead mt-3">@SelectedPrompt.Description</MudText>
-                        }
-
-                        <MudStack Row="true" Spacing="2" Class="mt-5">
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanGenerate)" OnClick="GenerateAsync">
-                                @(_generating ? "Generating..." : "Generate response")
-                            </MudButton>
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_generating" OnClick="LoadAsync">
-                                Refresh
-                            </MudButton>
-                        </MudStack>
-                    }
-                </MudPaper>
-
-                <MudPaper Class="callio-card pa-5" Elevation="0">
-                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
-                        <div>
                             <MudText Typo="Typo.h5">Saved responses</MudText>
                             <MudText Typo="Typo.body2" Class="callio-lead">
-                                Recent saved generations for tenant #@_tenantId.Value.
+                                Recent saved generations for tenant #@_tenantId.Value, separated from the response generation workflow.
                             </MudText>
                         </div>
-                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="LoadAsync">
-                            Refresh
-                        </MudButton>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                            @_filteredResponses.Count of @_responses.Count response(s)
+                        </MudChip>
                     </MudStack>
+
+                    <MudGrid Class="mb-4">
+                        <MudItem xs="12" md="4">
+                            <label class="callio-filter-label" for="response-prompt-filter">Prompt filter</label>
+                            <select id="response-prompt-filter" class="callio-filter-select" @bind="_selectedPromptKey" @bind:after="ApplyResponseView">
+                                <option value="@AllFilterValue">All prompts</option>
+                                @foreach (var prompt in _prompts)
+                                {
+                                    <option value="@prompt.Key">@prompt.Name</option>
+                                }
+                            </select>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <label class="callio-filter-label" for="response-status-filter">Status filter</label>
+                            <select id="response-status-filter" class="callio-filter-select" @bind="_selectedStatus" @bind:after="ApplyResponseView">
+                                <option value="@AllFilterValue">All statuses</option>
+                                @foreach (var status in ResponseStatuses)
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </select>
+                        </MudItem>
+                        <MudItem xs="12" md="4">
+                            <label class="callio-filter-label" for="response-sort">Sort by</label>
+                            <select id="response-sort" class="callio-filter-select" @bind="_sortBy" @bind:after="ApplyResponseView">
+                                <option value="@GenerationResponseSort.Newest">Newest generation</option>
+                                <option value="@GenerationResponseSort.Oldest">Oldest generation</option>
+                                <option value="@GenerationResponseSort.Prompt">Prompt</option>
+                                <option value="@GenerationResponseSort.Status">Status</option>
+                                <option value="@GenerationResponseSort.InputTokens">Input tokens</option>
+                                <option value="@GenerationResponseSort.OutputTokens">Output tokens</option>
+                                <option value="@GenerationResponseSort.SourceCount">Source count</option>
+                            </select>
+                        </MudItem>
+                        <MudItem xs="12">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.FlexEnd">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="@_loading" OnClick="ClearFilters">
+                                    Clear filters
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_loading" OnClick="LoadAsync">
+                                    @(_loading ? "Refreshing..." : "Refresh")
+                                </MudButton>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+
+                    @if (_loading)
+                    {
+                        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+                    }
 
                     @if (_responses.Count == 0)
                     {
@@ -149,16 +158,30 @@ else
                             No saved responses exist for this tenant yet.
                         </MudText>
                     }
+                    else if (_filteredResponses.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Class="callio-lead">
+                            No saved responses match the selected filters.
+                        </MudText>
+                    }
                     else
                     {
                         <MudExpansionPanels MultiExpansion="true">
-                            @foreach (var response in _responses)
+                            @foreach (var response in _filteredResponses)
                             {
-                                <MudExpansionPanel Text="@($"{response.PromptName} • {FormatUtc(response.CreatedAtUtc)}")">
+                                <MudExpansionPanel Text="@($"{response.PromptName} - {FormatUtc(response.CreatedAtUtc)}")">
                                     <MudStack Spacing="2">
-                                        <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(response.Status)" Variant="Variant.Filled">
-                                            @response.Status
-                                        </MudChip>
+                                        <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                                            <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(response.Status)" Variant="Variant.Filled">
+                                                @response.Status
+                                            </MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined">
+                                                @response.PromptKey
+                                            </MudChip>
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Outlined">
+                                                @($"{response.Sources.Count} source(s)")
+                                            </MudChip>
+                                        </MudStack>
 
                                         <MudText Typo="Typo.subtitle2">Input</MudText>
                                         <MudText Typo="Typo.body2" Class="callio-lead">@response.Input</MudText>
@@ -168,7 +191,6 @@ else
 
                                         <MudText Typo="Typo.subtitle2">Prompt metadata</MudText>
                                         <div class="callio-plan-card-quotas">
-                                            <div class="callio-plan-card-quota">@response.PromptKey</div>
                                             <div class="callio-plan-card-quota">@response.GenerationModel</div>
                                             <div class="callio-plan-card-quota">@($"Input tokens: {response.EstimatedInputTokens}")</div>
                                             <div class="callio-plan-card-quota">@($"Output tokens: {response.EstimatedOutputTokens}")</div>
@@ -198,24 +220,28 @@ else
 }
 
 @code {
+    private const string AllFilterValue = "__all";
+
     private PortalUserSession? _session;
     private int? _tenantId;
     private bool _loadingSession = true;
-    private bool _generating;
+    private bool _loading;
     private string? _feedbackMessage;
     private Severity _feedbackSeverity = Severity.Info;
-    private readonly GenerationRequestVm _generationModel = new();
     private IReadOnlyList<PortalGenerationPromptResponse> _prompts = [];
     private IReadOnlyList<PortalGenerationResponse> _responses = [];
+    private List<PortalGenerationResponse> _filteredResponses = [];
+    private string _selectedPromptKey = AllFilterValue;
+    private string _selectedStatus = AllFilterValue;
+    private GenerationResponseSort _sortBy = GenerationResponseSort.Newest;
 
-    private PortalGenerationPromptResponse? SelectedPrompt
-        => _prompts.FirstOrDefault(x => string.Equals(x.Key, _generationModel.PromptKey, StringComparison.OrdinalIgnoreCase));
-
-    private bool CanGenerate =>
-        !_generating &&
-        _tenantId is > 0 &&
-        !string.IsNullOrWhiteSpace(_generationModel.PromptKey) &&
-        !string.IsNullOrWhiteSpace(_generationModel.Input);
+    private IReadOnlyList<string> ResponseStatuses
+        => _responses
+            .Select(response => response.Status)
+            .Where(status => !string.IsNullOrWhiteSpace(status))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(status => status, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -233,72 +259,76 @@ else
         if (_tenantId is not > 0)
             return;
 
+        _loading = true;
+        _feedbackMessage = null;
+
         try
         {
             _prompts = await TenantGenerationApi.GetPromptsAsync(_tenantId.Value);
-            EnsureSelectedPrompt();
-            _responses = await TenantGenerationApi.GetResponsesAsync(_tenantId.Value, 25);
-            _feedbackMessage = null;
+            _responses = await TenantGenerationApi.GetResponsesAsync(_tenantId.Value, 100);
+            ApplyResponseView();
         }
         catch (Exception ex)
         {
             _prompts = [];
             _responses = [];
-            SetFeedback(Severity.Error, ex.Message);
-        }
-    }
-
-    private async Task GenerateAsync()
-    {
-        if (!CanGenerate || _tenantId is not > 0)
-            return;
-
-        _generating = true;
-        _feedbackMessage = null;
-
-        try
-        {
-            var generated = await TenantGenerationApi.GenerateResponseAsync(
-                _tenantId.Value,
-                new GeneratePortalTenantResponseRequest(
-                    _generationModel.Input.Trim(),
-                    _generationModel.PromptKey,
-                    null,
-                    null,
-                    true,
-                    null,
-                    null));
-
-            _generationModel.Input = string.Empty;
-            await LoadAsync();
-
-            var message = generated.Status == "Completed"
-                ? "Generated and saved the tenant response."
-                : $"Generation finished with status {generated.Status}.";
-            SetFeedback(generated.Status == "Completed" ? Severity.Success : Severity.Warning, message);
-        }
-        catch (Exception ex)
-        {
+            _filteredResponses = [];
             SetFeedback(Severity.Error, ex.Message);
         }
         finally
         {
-            _generating = false;
+            _loading = false;
         }
     }
 
-    private void EnsureSelectedPrompt()
+    private void ApplyResponseView()
+        => _filteredResponses = SortResponses(FilterResponses()).ToList();
+
+    private IEnumerable<PortalGenerationResponse> FilterResponses()
     {
-        if (_prompts.Count == 0)
+        var responses = _responses.AsEnumerable();
+
+        if (!string.Equals(_selectedPromptKey, AllFilterValue, StringComparison.Ordinal))
+            responses = responses.Where(response => string.Equals(response.PromptKey, _selectedPromptKey, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.Equals(_selectedStatus, AllFilterValue, StringComparison.Ordinal))
+            responses = responses.Where(response => string.Equals(response.Status, _selectedStatus, StringComparison.OrdinalIgnoreCase));
+
+        return responses;
+    }
+
+    private IEnumerable<PortalGenerationResponse> SortResponses(IEnumerable<PortalGenerationResponse> responses)
+        => _sortBy switch
         {
-            _generationModel.PromptKey = string.Empty;
-            return;
-        }
+            GenerationResponseSort.Oldest => responses
+                .OrderBy(response => response.CreatedAtUtc)
+                .ThenBy(response => response.PromptName, StringComparer.OrdinalIgnoreCase),
+            GenerationResponseSort.Prompt => responses
+                .OrderBy(response => response.PromptName, StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(response => response.CreatedAtUtc),
+            GenerationResponseSort.Status => responses
+                .OrderBy(response => response.Status, StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(response => response.CreatedAtUtc),
+            GenerationResponseSort.InputTokens => responses
+                .OrderByDescending(response => response.EstimatedInputTokens)
+                .ThenByDescending(response => response.CreatedAtUtc),
+            GenerationResponseSort.OutputTokens => responses
+                .OrderByDescending(response => response.EstimatedOutputTokens)
+                .ThenByDescending(response => response.CreatedAtUtc),
+            GenerationResponseSort.SourceCount => responses
+                .OrderByDescending(response => response.Sources.Count)
+                .ThenByDescending(response => response.CreatedAtUtc),
+            _ => responses
+                .OrderByDescending(response => response.CreatedAtUtc)
+                .ThenBy(response => response.PromptName, StringComparer.OrdinalIgnoreCase)
+        };
 
-        if (_prompts.Any(x => string.Equals(x.Key, _generationModel.PromptKey, StringComparison.OrdinalIgnoreCase)))
-            return;
-
-        _generationModel.PromptKey = _prompts[0].Key;
+    private void ClearFilters()
+    {
+        _selectedPromptKey = AllFilterValue;
+        _selectedStatus = AllFilterValue;
+        _sortBy = GenerationResponseSort.Newest;
+        ApplyResponseView();
     }
 
     private void SetFeedback(Severity severity, string message)
@@ -317,9 +347,14 @@ else
         _ => Color.Info
     };
 
-    private sealed class GenerationRequestVm
+    private enum GenerationResponseSort
     {
-        public string PromptKey { get; set; } = string.Empty;
-        public string Input { get; set; } = string.Empty;
+        Newest,
+        Oldest,
+        Prompt,
+        Status,
+        InputTokens,
+        OutputTokens,
+        SourceCount
     }
 }
