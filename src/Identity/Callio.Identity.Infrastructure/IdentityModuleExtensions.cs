@@ -39,6 +39,11 @@ public static class IdentityModuleExtensions
             {
                 policy.RequireAuthenticatedUser();
                 policy.RequireClaim(AppClaims.UserType, UserType.TenantUser.ToString());
+            })
+            .AddPolicy(AppPolicies.DashboardAdmin, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim(AppClaims.UserType, UserType.PowerUser.ToString());
             });
     }
 

@@ -20,6 +20,11 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Core\Callio.Core.Domain\Callio.Core.Domain.csproj" />
+      <ProjectReference Include="..\Identity\Callio.Identity.Domain\Callio.Identity.Domain.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
       <_ContentIncludedByDefault Remove="Components\Pages\IIdentity\Login.cshtml" />
     </ItemGroup>
 

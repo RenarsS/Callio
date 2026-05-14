@@ -3,6 +3,7 @@ using Callio.Admin.API.Contracts.Billing;
 using Callio.Admin.Domain;
 using Callio.Admin.Domain.ValueObjects;
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Core.Domain.Constants.Identity;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -14,7 +15,9 @@ public class BillingModule : ICarterModule
 {
     public void AddRoutes(IEndpointRouteBuilder app)
     {
-        var dashboard = app.MapGroup("api/dashboard").WithTags("Dashboard Billing");
+        var dashboard = app.MapGroup("api/dashboard")
+            .WithTags("Dashboard Billing")
+            .RequireAuthorization(AppPolicies.DashboardAdmin);
         var portal = app.MapGroup("api/portal").WithTags("Portal Plans");
 
         dashboard.MapGet("/plans", async (AdminDbContext db, CancellationToken ct) =>

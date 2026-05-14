@@ -2,6 +2,7 @@
 @page "/dashboard"
 @layout DashboardLayout
 @rendermode InteractiveServer
+@attribute [Authorize(Policy = AppPolicies.DashboardAdmin)]
 @inject Services.AdminApiClient Api
 
 <PageTitle>Dashboard overview</PageTitle>

@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace Callio.Admin.API.Modules;
 
@@ -100,7 +101,19 @@ public class TenantModule : ICarterModule
             return result is null ? Results.NotFound() : Results.Ok(result);
         }).RequireAuthorization(AppPolicies.PortalUser);
 
-        var dashboard = app.MapGroup("api/dashboard").WithTags("Dashboard Tenants");
+        var dashboard = app.MapGroup("api/dashboard")
+            .WithTags("Dashboard Tenants")
+            .RequireAuthorization(AppPolicies.DashboardAdmin);
+
+        dashboard.MapGet("/me", (HttpContext httpContext) =>
+        {
+            var user = httpContext.User;
+            return Results.Ok(new DashboardUserProfileResponse(
+                user.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty,
+                user.FindFirstValue(ClaimTypes.Email) ?? user.Identity?.Name ?? string.Empty,
+                user.FindFirstValue(AppClaims.DisplayName) ?? user.Identity?.Name ?? string.Empty));
+        });
+
         dashboard.MapGet("/tenant-requests", async (ITenantRequestService service, CancellationToken cancellationToken) =>
             Results.Ok(await service.GetAllAsync(cancellationToken)));
 
@@ -166,3 +179,8 @@ public record PortalUserProfileResponse(
     string DisplayName,
     string UserType,
     int? TenantId);
+
+public record DashboardUserProfileResponse(
+    string UserId,
+    string Email,
+    string DisplayName);

@@ -1,18 +1,17 @@
-﻿@page "/Login"
+@page "/login"
 @layout CenteredLayout
 
-<MudPaper Class="pa-8" Style="
+<MudPaper Class="dashboard-login-card pa-8" Style="
     width: 420px;
     max-width: 100%;
-    border-radius: 20px;
+    border-radius: 8px;
     background: #1a1d2e;
     border: 1px solid rgba(255,255,255,0.08);
     box-shadow: 0 24px 64px rgba(0,0,0,0.5);
 ">
-    <!-- Logo mark -->
     <div style="display:flex;justify-content:center;margin-bottom:28px;">
         <div style="
-            width:48px;height:48px;border-radius:14px;
+            width:48px;height:48px;border-radius:8px;
             background:rgba(99,102,241,0.15);
             border:1px solid rgba(99,102,241,0.35);
             display:flex;align-items:center;justify-content:center;">
@@ -27,36 +26,37 @@
         Sign in to your account
     </MudText>
 
-    <MudTextField T="string"
-                  Label="Email address"
-                  Variant="Variant.Outlined"
-                  InputType="InputType.Email"
-                  FullWidth="true"
-                  Class="mb-4" />
+    @if (!string.IsNullOrWhiteSpace(Error))
+    {
+        <MudAlert Severity="Severity.Error" Variant="Variant.Outlined" Class="mb-4">@Error</MudAlert>
+    }
 
-    <MudTextField T="string"
-                  Label="Password"
-                  Variant="Variant.Outlined"
-                  InputType="InputType.Password"
-                  FullWidth="true"
-                  Class="mb-2" />
+    <form method="post" action="/auth/login">
+        <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
 
-    <MudLink Href="/forgot-password" Typo="Typo.caption" Style="display:block;text-align:right;margin-bottom:24px;">
-        Forgot password?
-    </MudLink>
+        <label class="dashboard-login-label" for="admin-email">Email address</label>
+        <input id="admin-email"
+               class="dashboard-login-input"
+               type="email"
+               name="Email"
+               autocomplete="username"
+               required />
 
-    <MudButton Variant="Variant.Filled"
-               Color="Color.Primary"
-               FullWidth="true"
-               Size="Size.Large"
-               Style="border-radius:10px;font-weight:600;letter-spacing:0.2px;padding:12px;">
-        Sign in
-    </MudButton>
+        <label class="dashboard-login-label" for="admin-password">Password</label>
+        <input id="admin-password"
+               class="dashboard-login-input"
+               type="password"
+               name="Password"
+               autocomplete="current-password"
+               required />
 
-    <MudDivider Class="my-5" />
-
-    <MudText Typo="Typo.body2" Align="Align.Center" Style="opacity:0.5;">
-        Don't have an account?
-        <MudLink Href="/register" Style="font-weight:600;">Create one</MudLink>
-    </MudText>
+        <MudButton ButtonType="ButtonType.Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Style="border-radius:8px;font-weight:600;letter-spacing:0.2px;padding:12px;margin-top:20px;">
+            Sign in
+        </MudButton>
+    </form>
 </MudPaper>

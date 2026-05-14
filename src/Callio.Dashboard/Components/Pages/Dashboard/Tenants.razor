@@ -1,6 +1,7 @@
 @page "/dashboard/tenants"
 @layout DashboardLayout
 @rendermode InteractiveServer
+@attribute [Authorize(Policy = AppPolicies.DashboardAdmin)]
 @inject Callio.Admin.Services.AdminApiClient Api
 
 <PageTitle>Tenants</PageTitle>

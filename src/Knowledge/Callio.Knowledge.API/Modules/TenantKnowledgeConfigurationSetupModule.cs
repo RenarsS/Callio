@@ -1,4 +1,5 @@
 using Carter;
+using Callio.Core.Domain.Constants.Identity;
 using Callio.Knowledge.Application.KnowledgeConfigurations;
 using Callio.Provisioning.Application;
 using Microsoft.AspNetCore.Builder;
@@ -12,7 +13,8 @@ public class TenantKnowledgeConfigurationSetupModule : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/internal/tenant-infrastructure")
-            .WithTags("Tenant Knowledge Configuration Setup");
+            .WithTags("Tenant Knowledge Configuration Setup")
+            .RequireAuthorization(AppPolicies.DashboardAdmin);
 
         group.MapPost("/{tenantId:int}/knowledge-configuration/retry", async (
             int tenantId,

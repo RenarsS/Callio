@@ -13,7 +13,8 @@ public class TenantProvisioningModule : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/internal/tenant-infrastructure")
-            .WithTags("Tenant Infrastructure");
+            .WithTags("Tenant Infrastructure")
+            .RequireAuthorization(AppPolicies.DashboardAdmin);
         var portal = app.MapGroup("api/portal/tenants/{tenantId:int}/provisioning")
             .WithTags("Portal Tenant Provisioning")
             .RequireAuthorization(AppPolicies.PortalUser);

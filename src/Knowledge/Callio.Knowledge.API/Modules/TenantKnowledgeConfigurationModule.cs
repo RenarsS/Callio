@@ -1,4 +1,5 @@
 using Carter;
+using Callio.Core.Domain.Constants.Identity;
 using Callio.Core.Domain.Exceptions;
 using Callio.Knowledge.API.Modules.Requests;
 using Callio.Knowledge.Application.KnowledgeConfigurations;
@@ -13,7 +14,8 @@ public class TenantKnowledgeConfigurationModule : ICarterModule
     public void AddRoutes(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/internal/tenants/{tenantId:int}/knowledge-configurations")
-            .WithTags("Tenant Knowledge Configurations");
+            .WithTags("Tenant Knowledge Configurations")
+            .RequireAuthorization(AppPolicies.DashboardAdmin);
 
         group.MapPost("/default", async (int tenantId, ITenantKnowledgeConfigurationService service, CancellationToken cancellationToken) =>
         {

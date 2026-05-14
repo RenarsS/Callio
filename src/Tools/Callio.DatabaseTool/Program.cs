@@ -3,6 +3,7 @@ using Callio.Core.Infrastructure.Messaging.Knowledge;
 using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.DatabaseTool;
 using Callio.Generation.Infrastructure;
+using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure.Persistence;
 using Callio.Knowledge.Infrastructure.Consumers;
 using Callio.Knowledge.Infrastructure;
@@ -12,6 +13,7 @@ using Callio.Provisioning.Infrastructure.Persistence;
 using Callio.Provisioning.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Services;
 using MassTransit;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +42,8 @@ builder.Services.Configure<TenantProvisioningOptions>(
 builder.Services.AddDbContext<AdminDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
 builder.Services.AddDbContext<AppIdentityDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
 builder.Services.AddDbContext<ProvisioningDbContext>(options => UseSqlServerWithRetry(options, callioDbConnectionString));
+builder.Services.AddIdentityCore<ApplicationUser>()
+    .AddEntityFrameworkStores<AppIdentityDbContext>();
 
 builder.Services.AddSingleton<ITenantDatabaseConnectionStringFactory, TenantDatabaseConnectionStringFactory>();
 builder.Services.AddScoped<ITenantDatabaseSchemaProvisioner, SqlServerTenantDatabaseSchemaProvisioner>();

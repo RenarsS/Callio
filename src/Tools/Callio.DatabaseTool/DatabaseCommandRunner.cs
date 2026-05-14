@@ -1,8 +1,11 @@
 using Callio.Admin.Infrastructure.Persistence;
+using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure.Persistence;
 using Callio.Knowledge.Infrastructure.Provisioners;
 using Callio.Provisioning.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Callio.DatabaseTool;
@@ -10,10 +13,12 @@ namespace Callio.DatabaseTool;
 internal sealed class DatabaseCommandRunner(
     AdminDbContext adminDbContext,
     AppIdentityDbContext identityDbContext,
+    UserManager<ApplicationUser> userManager,
     ProvisioningDbContext provisioningDbContext,
     IKnowledgeMetadataStoreProvisioner knowledgeMetadataStoreProvisioner,
     TenantSchemaMigrationRunner tenantSchemaMigrationRunner,
     TestTenantRequestSeeder testTenantRequestSeeder,
+    IConfiguration configuration,
     ILogger<DatabaseCommandRunner> logger)
 {
     public async Task<int> RunAsync(DatabaseToolCommand command, CancellationToken cancellationToken)
@@ -40,6 +45,7 @@ internal sealed class DatabaseCommandRunner(
 
         logger.LogInformation("Applying identity schema migrations.");
         await identityDbContext.Database.MigrateAsync(cancellationToken);
+        await IdentityDataSeeder.SeedAdminUserAsync(userManager, configuration, logger, cancellationToken);
 
         logger.LogInformation("Applying provisioning schema migrations.");
         await provisioningDbContext.Database.MigrateAsync(cancellationToken);

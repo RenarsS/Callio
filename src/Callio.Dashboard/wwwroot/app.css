@@ -98,6 +98,36 @@ a, .btn-link {
     color: var(--callio-muted);
 }
 
+.dashboard-login-card.mud-paper {
+    border-radius: 8px !important;
+}
+
+.dashboard-login-label {
+    display: block;
+    margin: 0 0 0.4rem;
+    color: rgba(245, 248, 255, 0.78);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.dashboard-login-input {
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0 0 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(154, 171, 194, 0.24);
+    background: rgba(8, 17, 31, 0.82);
+    color: var(--callio-text);
+    font: inherit;
+    outline: none;
+}
+
+.dashboard-login-input:focus {
+    border-color: var(--callio-primary);
+    box-shadow: 0 0 0 3px rgba(28, 199, 184, 0.16);
+}
+
 .callio-table-container .mud-table-container,
 .mud-table-container {
     border-radius: 22px;

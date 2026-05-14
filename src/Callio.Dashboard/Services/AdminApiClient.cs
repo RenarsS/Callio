@@ -1,31 +1,33 @@
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.AspNetCore.Components.Authorization;
 
 namespace Callio.Admin.Services;
 
-public class AdminApiClient(HttpClient httpClient)
+public class AdminApiClient(HttpClient httpClient, AuthenticationStateProvider authenticationStateProvider)
 {
     public async Task<IReadOnlyList<TenantRequestItem>> GetTenantRequestsAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<TenantRequestItem>>("/api/dashboard/tenant-requests", ct) ?? [];
+        => await GetFromJsonAsync<List<TenantRequestItem>>("/api/dashboard/tenant-requests", ct) ?? [];
 
     public async Task<IReadOnlyList<TenantItem>> GetTenantsAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<TenantItem>>("/api/dashboard/tenants", ct) ?? [];
+        => await GetFromJsonAsync<List<TenantItem>>("/api/dashboard/tenants", ct) ?? [];
 
     public async Task<IReadOnlyList<TenantInfrastructureStatusItem>> GetTenantInfrastructureAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<TenantInfrastructureStatusItem>>("/api/internal/tenant-infrastructure", ct) ?? [];
+        => await GetFromJsonAsync<List<TenantInfrastructureStatusItem>>("/api/internal/tenant-infrastructure", ct) ?? [];
 
     public Task<TenantInfrastructureStatusItem?> GetTenantInfrastructureByTenantIdAsync(int tenantId, CancellationToken ct = default)
-        => httpClient.GetFromJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}", ct);
+        => GetFromJsonAsync<TenantInfrastructureStatusItem>($"/api/internal/tenant-infrastructure/{tenantId}", ct);
 
     public async Task<TenantKnowledgeDashboardOverviewItem> GetTenantKnowledgeOverviewAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<TenantKnowledgeDashboardOverviewItem>("/api/dashboard/knowledge/overview", ct)
+        => await GetFromJsonAsync<TenantKnowledgeDashboardOverviewItem>("/api/dashboard/knowledge/overview", ct)
            ?? new TenantKnowledgeDashboardOverviewItem(0, 0, 0, 0, 0, 0, 0);
 
     public async Task<IReadOnlyList<PlanItem>> GetPlansAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<PlanItem>>("/api/dashboard/plans", ct) ?? [];
+        => await GetFromJsonAsync<List<PlanItem>>("/api/dashboard/plans", ct) ?? [];
 
     public async Task<IReadOnlyList<UsageMetricItem>> GetUsageMetricsAsync(CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<UsageMetricItem>>("/api/dashboard/usage-metrics", ct) ?? [];
+        => await GetFromJsonAsync<List<UsageMetricItem>>("/api/dashboard/usage-metrics", ct) ?? [];
 
     public Task ApproveRequestAsync(int requestId, string note, CancellationToken ct = default)
         => PostAsync($"/api/dashboard/tenant-requests/{requestId}/approve", new ProcessTenantRequestRequest("dashboard-admin", note), ct);
@@ -54,29 +56,61 @@ public class AdminApiClient(HttpClient httpClient)
     public Task UpdateQuotaAsync(int planId, int quotaId, QuotaUpdateRequest request, CancellationToken ct = default) => PutAsync($"/api/dashboard/plans/{planId}/quotas/{quotaId}", request, ct);
     public Task DeleteQuotaAsync(int planId, int quotaId, CancellationToken ct = default) => DeleteAsync($"/api/dashboard/plans/{planId}/quotas/{quotaId}", ct);
 
+    private async Task<T?> GetFromJsonAsync<T>(string uri, CancellationToken ct)
+    {
+        using var request = await CreateRequestAsync(HttpMethod.Get, uri, ct);
+        using var response = await httpClient.SendAsync(request, ct);
+        await EnsureSuccessAsync(response, ct);
+        return await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct);
+    }
+
     private async Task PostAsync<T>(string uri, T payload, CancellationToken ct)
     {
-        var response = await httpClient.PostAsJsonAsync(uri, payload, ct);
+        using var request = await CreateRequestAsync(HttpMethod.Post, uri, ct);
+        request.Content = JsonContent.Create(payload);
+        using var response = await httpClient.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
     }
 
     private async Task PutAsync<T>(string uri, T payload, CancellationToken ct)
     {
-        var response = await httpClient.PutAsJsonAsync(uri, payload, ct);
+        using var request = await CreateRequestAsync(HttpMethod.Put, uri, ct);
+        request.Content = JsonContent.Create(payload);
+        using var response = await httpClient.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
     }
 
     private async Task DeleteAsync(string uri, CancellationToken ct)
     {
-        var response = await httpClient.DeleteAsync(uri, ct);
+        using var request = await CreateRequestAsync(HttpMethod.Delete, uri, ct);
+        using var response = await httpClient.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
     }
 
     private async Task<T> PostForJsonAsync<T>(string uri, CancellationToken ct)
     {
-        var response = await httpClient.PostAsync(uri, content: null, ct);
+        using var request = await CreateRequestAsync(HttpMethod.Post, uri, ct);
+        using var response = await httpClient.SendAsync(request, ct);
         await EnsureSuccessAsync(response, ct);
         return (await response.Content.ReadFromJsonAsync<T>(cancellationToken: ct))!;
+    }
+
+    private async Task<HttpRequestMessage> CreateRequestAsync(HttpMethod method, string uri, CancellationToken ct)
+    {
+        var request = new HttpRequestMessage(method, uri);
+        var token = await GetAccessTokenAsync(ct);
+        if (!string.IsNullOrWhiteSpace(token))
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return request;
+    }
+
+    private async Task<string?> GetAccessTokenAsync(CancellationToken ct)
+    {
+        var authenticationState = await authenticationStateProvider.GetAuthenticationStateAsync();
+        ct.ThrowIfCancellationRequested();
+
+        return authenticationState.User.FindFirst(AdminDashboardClaims.AccessToken)?.Value;
     }
 
     private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)

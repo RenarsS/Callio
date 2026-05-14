@@ -6,8 +6,10 @@ using Callio.Core.Infrastructure.Messaging.Knowledge;
 using Callio.Core.Infrastructure.Messaging.Tenants;
 using Callio.Generation.API.Modules;
 using Callio.Generation.Infrastructure;
+using Callio.Identity.Domain;
 using Callio.Identity.Infrastructure;
 using Callio.Identity.Infrastructure.Consumers;
+using Callio.Identity.Infrastructure.Persistence;
 using Callio.Knowledge.API.Modules;
 using Callio.Knowledge.Infrastructure;
 using Callio.Knowledge.Infrastructure.Consumers;
@@ -17,6 +19,7 @@ using Callio.Provisioning.Infrastructure;
 using Callio.Provisioning.Infrastructure.Consumers;
 using Callio.Provisioning.Infrastructure.Persistence;
 using MassTransit;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
@@ -114,16 +117,17 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AdminDbContext>();
+    var identityDb = scope.ServiceProvider.GetRequiredService<AppIdentityDbContext>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var provisioningDb = scope.ServiceProvider.GetRequiredService<ProvisioningDbContext>();
     var knowledgeMetadataStoreProvisioner = scope.ServiceProvider.GetRequiredService<IKnowledgeMetadataStoreProvisioner>();
 
+    await identityDb.Database.MigrateAsync();
+    await IdentityDataSeeder.SeedAdminUserAsync(userManager, app.Configuration);
     await provisioningDb.Database.MigrateAsync();
     await knowledgeMetadataStoreProvisioner.EnsureCreatedAsync();
     await AdminDataSeeder.SeedAsync(db);
 }
-
-app.MapIdentityModule();
-app.MapCarter();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -135,5 +139,8 @@ if (app.Environment.IsDevelopment())
 app.UseCors("LocalDevCors");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapIdentityModule();
+app.MapCarter();
 
 app.Run();
